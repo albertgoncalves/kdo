@@ -1,0 +1,11 @@
+*
+!.gitignore
+!*.nix
+!.shellhook
+!README.md
+!.clang-format
+!src/
+!*.h
+!*.c
+!*.glsl
+!main
