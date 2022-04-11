@@ -86,21 +86,22 @@ static f32 CAMERA_Y = CAMERA_INIT_Y;
 
 #define JUMP    7.5f
 #define GRAVITY 0.0525f
-#define DROP    (GRAVITY * 7.5f)
+#define DROP    7.5f
 
 static f32 PLAYER_SPEED_X = 0.0f;
 static f32 PLAYER_SPEED_Y = 0.0f;
 
 static Bool PLAYER_CAN_JUMP = FALSE;
 
-#define PLAYER_CENTER_X 0.0f
-#define PLAYER_CENTER_Y 0.0f
+#define PLAYER_INIT_CENTER_X 0.0f
+#define PLAYER_INIT_CENTER_Y 0.0f
 
-#define PLAYER_SCALE_X 100.0f
-#define PLAYER_SCALE_Y PLAYER_SCALE_X
+#define PLAYER_INIT_SCALE_X 100.0f
+#define PLAYER_INIT_SCALE_Y PLAYER_INIT_SCALE_X
 
 static Rect RECTS[] = {
-    {{PLAYER_CENTER_X, PLAYER_CENTER_Y}, {PLAYER_SCALE_X, PLAYER_SCALE_Y}},
+    {{PLAYER_INIT_CENTER_X, PLAYER_INIT_CENTER_Y},
+     {PLAYER_INIT_SCALE_X, PLAYER_INIT_SCALE_Y}},
     {{0.0f, -60.0f}, {2400.0f, 20.0f}},
 };
 
@@ -352,7 +353,7 @@ i32 main(i32 n, const char** args) {
                 PLAYER_SPEED_X -= RUN;
             }
             if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-                PLAYER_SPEED_Y -= DROP;
+                PLAYER_SPEED_Y -= GRAVITY * DROP;
             } else {
                 PLAYER_SPEED_Y -= GRAVITY;
             }
