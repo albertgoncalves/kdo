@@ -53,10 +53,10 @@ static char BUFFER[CAP_BUFFER];
 #define MICROSECONDS 1000000.0
 
 static const Vec2f VERTICES[] = {
-    {1.0f, 1.0f},
-    {1.0f, -1.0f},
-    {-1.0f, -1.0f},
-    {-1.0f, 1.0f},
+    {0.5f, 0.5f},
+    {0.5f, -0.5f},
+    {-0.5f, -0.5f},
+    {-0.5f, 0.5f},
 };
 static const Vec3u INDICES[] = {
     {0, 1, 3},
@@ -95,7 +95,7 @@ static Bool PLAYER_CAN_JUMP = FALSE;
 #define PLAYER_INIT_CENTER_X 0.0f
 #define PLAYER_INIT_CENTER_Y 0.0f
 
-#define PLAYER_INIT_SCALE_X 100.0f
+#define PLAYER_INIT_SCALE_X 50.0f
 #define PLAYER_INIT_SCALE_Y PLAYER_INIT_SCALE_X
 
 static Rect RECTS[] = {
