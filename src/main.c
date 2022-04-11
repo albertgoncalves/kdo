@@ -100,18 +100,16 @@ static const Vec3u INDICES[] = {
     {1, 2, 3},
 };
 
-#define EXIT()                                                       \
-    {                                                                \
-        fflush(stdout);                                              \
-        fprintf(stderr, "%s:%s:%d\n", __FILE__, __func__, __LINE__); \
-        _exit(ERROR);                                                \
+#define EXIT()                                              \
+    {                                                       \
+        printf("%s:%s:%d\n", __FILE__, __func__, __LINE__); \
+        _exit(ERROR);                                       \
     }
 
-#define EXIT_WITH(x)                                                        \
-    {                                                                       \
-        fflush(stdout);                                                     \
-        fprintf(stderr, "%s:%s:%d\n%s\n", __FILE__, __func__, __LINE__, x); \
-        _exit(ERROR);                                                       \
+#define EXIT_WITH(x)                                               \
+    {                                                              \
+        printf("%s:%s:%d\n%s\n", __FILE__, __func__, __LINE__, x); \
+        _exit(ERROR);                                              \
     }
 
 #define EXIT_IF(condition)    \
@@ -161,8 +159,7 @@ static f64 now(void) {
 }
 
 ATTRIBUTE(noreturn) static void callback_error(i32 code, const char* error) {
-    fflush(stdout);
-    fprintf(stderr, "%d: %s\n", code, error);
+    printf("%d: %s\n", code, error);
     _exit(ERROR);
 }
 
@@ -173,8 +170,7 @@ static i32 compile_shader(const char* source, u32 shader) {
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (!status) {
         glGetShaderInfoLog(shader, CAP_BUFFER, NULL, BUFFER);
-        fflush(stdout);
-        fprintf(stderr, "%s", BUFFER);
+        printf("%s", BUFFER);
     }
     return status;
 }
@@ -212,9 +208,8 @@ static void compile_program(void) {
     glGetProgramiv(PROGRAM, GL_LINK_STATUS, &status);
     if (!status) {
         glGetProgramInfoLog(PROGRAM, CAP_BUFFER, NULL, BUFFER);
-        fflush(stdout);
-        fprintf(stderr, "%s", BUFFER);
-        return;
+        printf("%s", BUFFER);
+        return status;
     }
     glDeleteShader(shader_vert);
     glDeleteShader(shader_frag);
