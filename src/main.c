@@ -156,11 +156,11 @@ static i32 UNIFORM_TIME_SECONDS;
     }
 
 static const char* read_file(const char* path) {
-    i32 file = open(path, O_RDONLY);
+    const i32 file = open(path, O_RDONLY);
     EXIT_IF(file < 0);
     FileStat stat;
     EXIT_IF(fstat(file, &stat) < 0)
-    void* address =
+    const void* address =
         mmap(NULL, (u32)stat.st_size, PROT_READ, MAP_SHARED, file, 0);
     EXIT_IF(address == MAP_FAILED);
     const char* string = (const char*)address;
