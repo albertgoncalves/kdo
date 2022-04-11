@@ -8,6 +8,7 @@ uniform vec2  WINDOW;
 uniform float TIME_SECONDS;
 
 void main() {
-    FRAG_OUT_COLOR =
-        vec4(gl_FragCoord.xy / WINDOW, (sin(TIME_SECONDS) + 1.0) / 2.0, 1.0);
+    FRAG_OUT_COLOR = vec4(gl_FragCoord.xy / WINDOW,
+                          (sin(TIME_SECONDS) + 1.0f) / 2.0f,
+                          1.0f);
 }

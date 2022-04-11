@@ -96,12 +96,12 @@ static Bool PLAYER_CAN_JUMP = FALSE;
 #define PLAYER_CENTER_X 0.0f
 #define PLAYER_CENTER_Y 0.0f
 
-#define PLAYER_SCALE_X 50.0f
+#define PLAYER_SCALE_X 100.0f
 #define PLAYER_SCALE_Y PLAYER_SCALE_X
 
 static Rect RECTS[] = {
     {{PLAYER_CENTER_X, PLAYER_CENTER_Y}, {PLAYER_SCALE_X, PLAYER_SCALE_Y}},
-    {{0.0f, -60.0f}, {1200.0f, 10.0f}},
+    {{0.0f, -60.0f}, {2400.0f, 20.0f}},
 };
 
 #define CAP_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
