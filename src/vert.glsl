@@ -10,14 +10,13 @@ uniform vec2  CAMERA;
 uniform vec2  WINDOW;
 uniform float TIME_SECONDS;
 
-#define ZOOM   60
-#define OFFSET vec2(0.0, 0.375f)
+#define OFFSET vec2(0.0, 350.0f)
 
 void main() {
     gl_Position =
-        vec4((VERT_IN_TRANSLATE +
-              ((VERT_IN_POSITION.xy * VERT_IN_SCALE * ZOOM) / WINDOW)) -
-                 vec2(CAMERA + OFFSET),
+        vec4((((VERT_IN_POSITION * VERT_IN_SCALE) + VERT_IN_TRANSLATE) -
+              (CAMERA + OFFSET)) /
+                 WINDOW,
              0.0,
              1.0);
 }

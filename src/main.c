@@ -67,42 +67,44 @@ static const Vec3u INDICES[] = {
 static const char* PATH_SHADER_VERT;
 static const char* PATH_SHADER_FRAG;
 
-#define FRAME_UPDATE_COUNT 6.0
+#define FRAME_UPDATE_COUNT 8.0
 #define FRAME_DURATION     ((1.0 / 60.0) * MICROSECONDS)
 #define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
 static f32 CAMERA_X = 0.0f;
 static f32 CAMERA_Y = 0.0f;
 
-#define LATENCY_X 125.0f
-#define LATENCY_Y 350.0f
+#define CAMERA_LATENCY_X 125.0f
+#define CAMERA_LATENCY_Y 250.0f
 
-#define RUN      0.00035f
-#define FRICTION 0.945f
-#define DRAG     0.9325f
 
-#define JUMP    0.01125f
-#define FALL    0.00075f
-#define GRAVITY 0.000125f
+#define RUN      0.1325f
+#define FRICTION 0.9675f
+#define DRAG     0.945f
 
-static f32 SPEED_X = 0.0f;
-static f32 SPEED_Y = 0.0f;
+#define JUMP    7.5f
+#define GRAVITY 0.0525f
+#define DROP    (GRAVITY * 7.5f)
+
+static f32 PLAYER_SPEED_X = 0.0f;
+static f32 PLAYER_SPEED_Y = 0.0f;
+
+static Bool PLAYER_CAN_JUMP = FALSE;
+
+#define PLAYER_CENTER_X 0.0f
+#define PLAYER_CENTER_Y 0.0f
+
+#define PLAYER_SCALE_X 50.0f
+#define PLAYER_SCALE_Y PLAYER_SCALE_X
 
 static Rect RECTS[] = {
-    {{0.0f, 0.0f}, {1.0f, 1.0f}},
-    {{0.0f, -0.0625f}, {50.0f, 0.125f}},
-    {{0.75f, 0.5f}, {2.5f, 0.5f}},
-    {{0.5f, 0.25f}, {2.5f, 0.25f}},
-    {{0.35f, 0.5f}, {3.0f, 0.25f}},
-    {{-0.25f, 0.25f}, {5.0f, 0.1f}},
-    {{-0.75f, 0.85f}, {1.5f, 0.1f}},
-    {{0.0f, 1.0f}, {20.0f, 0.125f}},
+    {{PLAYER_CENTER_X, PLAYER_CENTER_Y}, {PLAYER_SCALE_X, PLAYER_SCALE_Y}},
+    {{0.0f, -60.0f}, {1200.0f, 10.0f}},
 };
 
-static f32* PLAYER_X = &RECTS[0].center.x;
-static f32* PLAYER_Y = &RECTS[0].center.y;
-
 #define CAP_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
+
+#define PLAYER RECTS[0]
 
 // NOTE: This is ugly stuff. These shouldn't *need* to be global variables.
 static u32 PROGRAM;
@@ -252,8 +254,9 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
         break;
     }
     case GLFW_KEY_W: {
-        if (*PLAYER_Y <= 0.0f) {
-            SPEED_Y += JUMP;
+        if (PLAYER_CAN_JUMP) {
+            PLAYER_SPEED_Y += JUMP;
+            PLAYER_CAN_JUMP = FALSE;
         }
         break;
     }
@@ -341,27 +344,28 @@ i32 main(i32 n, const char** args) {
         while (FRAME_UPDATE_STEP < delta) {
             glfwPollEvents();
             if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-                SPEED_X += RUN;
+                PLAYER_SPEED_X += RUN;
             }
             if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-                SPEED_X -= RUN;
+                PLAYER_SPEED_X -= RUN;
             }
             if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-                SPEED_Y -= FALL;
+                PLAYER_SPEED_Y -= DROP;
             } else {
-                SPEED_Y -= GRAVITY;
+                PLAYER_SPEED_Y -= GRAVITY;
             }
-            *PLAYER_Y += SPEED_Y;
-            if (*PLAYER_Y <= 0.0f) {
-                SPEED_X *= FRICTION;
-                *PLAYER_Y = 0.0f;
-                SPEED_Y   = 0.0f;
+            PLAYER.center.y += PLAYER_SPEED_Y;
+            if (PLAYER.center.y <= 0.0f) {
+                PLAYER_SPEED_X *= FRICTION;
+                PLAYER.center.y = 0.0f;
+                PLAYER_SPEED_Y  = 0.0f;
+                PLAYER_CAN_JUMP = TRUE;
             } else {
-                SPEED_X *= DRAG;
+                PLAYER_SPEED_X *= DRAG;
             }
-            *PLAYER_X += SPEED_X;
-            CAMERA_X -= (CAMERA_X - *PLAYER_X) / LATENCY_X;
-            CAMERA_Y -= (CAMERA_Y - *PLAYER_Y) / LATENCY_Y;
+            PLAYER.center.x += PLAYER_SPEED_X;
+            CAMERA_X -= (CAMERA_X - PLAYER.center.x) / CAMERA_LATENCY_X;
+            CAMERA_Y -= (CAMERA_Y - PLAYER.center.y) / CAMERA_LATENCY_Y;
             delta -= FRAME_UPDATE_STEP;
         }
         prev = start;
