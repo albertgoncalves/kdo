@@ -54,6 +54,20 @@ static char BUFFER[CAP_BUFFER];
 
 #define MICROSECONDS 1000000.0
 
+static const Vec2f VERTICES[] = {
+    {1.0f, 1.0f},
+    {1.0f, -1.0f},
+    {-1.0f, -1.0f},
+    {-1.0f, 1.0f},
+};
+static const Vec3u INDICES[] = {
+    {0, 1, 3},
+    {1, 2, 3},
+};
+
+static const char* PATH_SHADER_VERT;
+static const char* PATH_SHADER_FRAG;
+
 #define FRAME_UPDATE_COUNT 6.0
 #define FRAME_DURATION     ((1.0 / 60.0) * MICROSECONDS)
 #define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
@@ -91,16 +105,11 @@ static f32* PLAYER_Y = &RECTS[0].center.y;
 
 #define CAP_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
 
-static const Vec2f VERTICES[] = {
-    {1.0f, 1.0f},
-    {1.0f, -1.0f},
-    {-1.0f, -1.0f},
-    {-1.0f, 1.0f},
-};
-static const Vec3u INDICES[] = {
-    {0, 1, 3},
-    {1, 2, 3},
-};
+// NOTE: This is ugly stuff. These shouldn't *need* to be global variables.
+static u32 PROGRAM;
+static i32 UNIFORM_CAMERA;
+static i32 UNIFORM_WINDOW;
+static i32 UNIFORM_TIME_SECONDS;
 
 #define EXIT()                                              \
     {                                                       \
@@ -185,22 +194,14 @@ static i32 compile_shader(const char* source, u32 shader) {
         EXIT_IF_GL_ERROR();                                         \
     }
 
-// NOTE: This is ugly stuff. These shouldn't *need* to be global variables.
-static u32         PROGRAM;
-static const char* PATH_VERT;
-static const char* PATH_FRAG;
-static i32         UNIFORM_CAMERA;
-static i32         UNIFORM_WINDOW;
-static i32         UNIFORM_TIME_SECONDS;
-
 static void compile_program(void) {
     PROGRAM               = glCreateProgram();
     const u32 shader_vert = glCreateShader(GL_VERTEX_SHADER);
     const u32 shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
-    if (!compile_shader(read_string(PATH_VERT), shader_vert)) {
+    if (!compile_shader(read_string(PATH_SHADER_VERT), shader_vert)) {
         return;
     }
-    if (!compile_shader(read_string(PATH_FRAG), shader_frag)) {
+    if (!compile_shader(read_string(PATH_SHADER_FRAG), shader_frag)) {
         return;
     }
     glAttachShader(PROGRAM, shader_vert);
@@ -250,8 +251,8 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
 
 i32 main(i32 n, const char** args) {
     EXIT_IF(n < 3);
-    PATH_VERT = args[1];
-    PATH_FRAG = args[2];
+    PATH_SHADER_VERT = args[1];
+    PATH_SHADER_FRAG = args[2];
 
     printf("GLFW version : %s\n", glfwGetVersionString());
 
