@@ -89,6 +89,8 @@ static Rect RECTS[] = {
 static f32* PLAYER_X = &RECTS[0].center.x;
 static f32* PLAYER_Y = &RECTS[0].center.y;
 
+#define CAP_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
+
 static const Vec2f VERTICES[] = {
     {1.0f, 1.0f},
     {1.0f, -1.0f},
@@ -361,14 +363,20 @@ i32 main(i32 n, const char** args) {
 
         glUniform2f(UNIFORM_CAMERA, CAMERA_X, CAMERA_Y);
         glUniform1f(UNIFORM_TIME_SECONDS, (f32)glfwGetTime());
-
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS), RECTS);
+#if 1
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
+#else
+        glBufferSubData(GL_ARRAY_BUFFER,
+                        0,
+                        CAP_RECTS * sizeof(RECTS[0]),
+                        RECTS);
+#endif
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawElementsInstanced(GL_TRIANGLES,
                                 6,
                                 GL_UNSIGNED_INT,
                                 INDEX_VERTEX,
-                                sizeof(RECTS) / sizeof(RECTS[0]));
+                                CAP_RECTS);
         EXIT_IF_GL_ERROR()
         glfwSwapBuffers(window);
 
