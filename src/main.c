@@ -194,20 +194,28 @@ static i32 compile_shader(const char* source, u32 shader) {
         EXIT_IF_GL_ERROR();                                         \
     }
 
-static void compile_program(void) {
+static i32 compile_program(void) {
     PROGRAM               = glCreateProgram();
     const u32 shader_vert = glCreateShader(GL_VERTEX_SHADER);
     const u32 shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
-    if (!compile_shader(read_string(PATH_SHADER_VERT), shader_vert)) {
-        return;
+    {
+        const i32 status =
+            compile_shader(read_string(PATH_SHADER_VERT), shader_vert);
+        if (!status) {
+            return status;
+        }
     }
-    if (!compile_shader(read_string(PATH_SHADER_FRAG), shader_frag)) {
-        return;
+    {
+        const i32 status =
+            compile_shader(read_string(PATH_SHADER_FRAG), shader_frag);
+        if (!status) {
+            return status;
+        }
     }
     glAttachShader(PROGRAM, shader_vert);
     glAttachShader(PROGRAM, shader_frag);
     glLinkProgram(PROGRAM);
-    i32 status;
+    i32 status = 0;
     glGetProgramiv(PROGRAM, GL_LINK_STATUS, &status);
     if (!status) {
         glGetProgramInfoLog(PROGRAM, CAP_BUFFER, NULL, BUFFER);
@@ -222,6 +230,7 @@ static void compile_program(void) {
     UNIFORM_TIME_SECONDS = glGetUniformLocation(PROGRAM, "TIME_SECONDS");
     glUniform2f(UNIFORM_WINDOW, WIDTH, HEIGHT);
     EXIT_IF_GL_ERROR();
+    return status;
 }
 
 static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
@@ -235,9 +244,12 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
         break;
     }
     case GLFW_KEY_R: {
-        printf(PREFIX "reloading shaders\n");
         glDeleteProgram(PROGRAM);
-        compile_program();
+        if (!compile_program()) {
+            printf(PREFIX "unable to compile shader\n");
+        } else {
+            printf(PREFIX "shaders re-compiled\n");
+        }
         break;
     }
     case GLFW_KEY_W: {
@@ -319,7 +331,7 @@ i32 main(i32 n, const char** args) {
     glVertexAttribDivisor(INDEX_SCALE, 1);
     EXIT_IF_GL_ERROR();
 
-    compile_program();
+    EXIT_IF(!compile_program());
     glViewport(0, 0, WIDTH, HEIGHT);
 
     f64 prev  = now();
