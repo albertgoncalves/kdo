@@ -41,8 +41,8 @@ typedef struct {
 #define CAP_BUFFER (1 << 10)
 static char BUFFER[CAP_BUFFER];
 
-#define WIDTH  1200
-#define HEIGHT 900
+#define WINDOW_X 1200
+#define WINDOW_Y 900
 
 #define PREFIX "  # "
 
@@ -231,7 +231,7 @@ static i32 compile_program(void) {
     UNIFORM_CAMERA       = glGetUniformLocation(PROGRAM, "CAMERA");
     UNIFORM_WINDOW       = glGetUniformLocation(PROGRAM, "WINDOW");
     UNIFORM_TIME_SECONDS = glGetUniformLocation(PROGRAM, "TIME_SECONDS");
-    glUniform2f(UNIFORM_WINDOW, WIDTH, HEIGHT);
+    glUniform2f(UNIFORM_WINDOW, WINDOW_X, WINDOW_Y);
     EXIT_IF_GL_ERROR();
     return status;
 }
@@ -279,7 +279,8 @@ i32 main(i32 n, const char** args) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, FALSE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "float", NULL, NULL);
+    GLFWwindow* window =
+        glfwCreateWindow(WINDOW_X, WINDOW_Y, "float", NULL, NULL);
     if (!window) {
         glfwTerminate();
         EXIT();
@@ -293,16 +294,16 @@ i32 main(i32 n, const char** args) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     EXIT_IF_GL_ERROR()
 
-    u32 array_vertex;
-    glGenVertexArrays(1, &array_vertex);
-    glBindVertexArray(array_vertex);
+    u32 vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
     EXIT_IF_GL_ERROR();
 
-    u32 buffer_vertex;
-    BIND_BUFFER(buffer_vertex, VERTICES, GL_ARRAY_BUFFER);
+    u32 vbo;
+    BIND_BUFFER(vbo, VERTICES, GL_ARRAY_BUFFER);
 
-    u32 buffer_element;
-    BIND_BUFFER(buffer_element, INDICES, GL_ELEMENT_ARRAY_BUFFER);
+    u32 ebo;
+    BIND_BUFFER(ebo, INDICES, GL_ELEMENT_ARRAY_BUFFER);
     glEnableVertexAttribArray(INDEX_VERTEX);
     glVertexAttribPointer(INDEX_VERTEX,
                           2,
@@ -312,8 +313,8 @@ i32 main(i32 n, const char** args) {
                           0);
     EXIT_IF_GL_ERROR();
 
-    u32 buffer_instance;
-    BIND_BUFFER(buffer_instance, RECTS, GL_ARRAY_BUFFER);
+    u32 instance_vbo;
+    BIND_BUFFER(instance_vbo, RECTS, GL_ARRAY_BUFFER);
 
     glEnableVertexAttribArray(INDEX_TRANSLATE);
     glVertexAttribPointer(INDEX_TRANSLATE,
@@ -336,7 +337,7 @@ i32 main(i32 n, const char** args) {
     EXIT_IF_GL_ERROR();
 
     EXIT_IF(!compile_program());
-    glViewport(0, 0, WIDTH, HEIGHT);
+    glViewport(0, 0, WINDOW_X, WINDOW_Y);
 
     f64 prev  = now();
     f64 delta = 0.0;
@@ -396,10 +397,10 @@ i32 main(i32 n, const char** args) {
             usleep((u32)(FRAME_DURATION - elapsed));
         }
     }
-    glDeleteVertexArrays(1, &array_vertex);
-    glDeleteBuffers(1, &buffer_vertex);
-    glDeleteBuffers(1, &buffer_element);
-    glDeleteBuffers(1, &buffer_instance);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteBuffers(1, &instance_vbo);
     glDeleteProgram(PROGRAM);
     glfwTerminate();
     return OK;
