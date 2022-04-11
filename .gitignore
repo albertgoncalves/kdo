@@ -4,8 +4,9 @@
 !.shellhook
 !README.md
 !.clang-format
+!scripts/
+!*.sh
 !src/
 !*.h
 !*.c
 !*.glsl
-!main
