@@ -30,8 +30,7 @@ typedef struct {
 } Vec3u;
 
 typedef struct {
-    Vec2f center;
-    Vec2f scale;
+    Vec2f center, scale;
 } Rect;
 
 #define OK    0
