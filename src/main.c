@@ -1,5 +1,4 @@
 #include <fcntl.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/mman.h>
@@ -366,13 +365,6 @@ i32 main(i32 n, const char** args) {
             delta -= FRAME_UPDATE_STEP;
         }
         prev = start;
-
-        for (u32 i = 2; i < (sizeof(RECTS) / sizeof(RECTS[0])); ++i) {
-            RECTS[i].center.x += sinf((f32)glfwGetTime()) / (25.0f * (f32)i);
-            RECTS[i].center.y += cosf((f32)glfwGetTime()) / (50.0f * (f32)i);
-            RECTS[i].scale.x += cosf((f32)glfwGetTime()) / (100.0f * (f32)i);
-            RECTS[i].scale.y += cosf((f32)glfwGetTime()) / (200.0f * (f32)i);
-        }
 
         glUniform2f(UNIFORM_CAMERA, CAMERA_X, CAMERA_Y);
         glUniform1f(UNIFORM_TIME_SECONDS, (f32)glfwGetTime());
