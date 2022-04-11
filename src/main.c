@@ -71,12 +71,14 @@ static const char* PATH_SHADER_FRAG;
 #define FRAME_DURATION     ((1.0 / 60.0) * MICROSECONDS)
 #define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
-static f32 CAMERA_X = 0.0f;
-static f32 CAMERA_Y = 0.0f;
+#define CAMERA_INIT_X 0.0f
+#define CAMERA_INIT_Y 0.0f
+
+static f32 CAMERA_X = CAMERA_INIT_X;
+static f32 CAMERA_Y = CAMERA_INIT_Y;
 
 #define CAMERA_LATENCY_X 125.0f
 #define CAMERA_LATENCY_Y 250.0f
-
 
 #define RUN      0.1325f
 #define FRICTION 0.9675f
