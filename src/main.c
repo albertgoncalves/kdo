@@ -156,7 +156,7 @@ static i32 UNIFORM_TIME_SECONDS;
         }                                                  \
     }
 
-static const char* read_string(const char* path) {
+static const char* read_file(const char* path) {
     i32 file = open(path, O_RDONLY);
     EXIT_IF(file < 0);
     FileStat stat;
@@ -204,14 +204,14 @@ static i32 compile_program(void) {
     const u32 shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
     {
         const i32 status =
-            compile_shader(read_string(PATH_SHADER_VERT), shader_vert);
+            compile_shader(read_file(PATH_SHADER_VERT), shader_vert);
         if (!status) {
             return status;
         }
     }
     {
         const i32 status =
-            compile_shader(read_string(PATH_SHADER_FRAG), shader_frag);
+            compile_shader(read_file(PATH_SHADER_FRAG), shader_frag);
         if (!status) {
             return status;
         }
