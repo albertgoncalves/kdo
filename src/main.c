@@ -89,7 +89,7 @@ static Vec2f CAMERA = (Vec2f){
 #define JUMP    5.0f
 #define GRAVITY 0.0525f
 #define DROP    7.5f
-#define BOUNCE  1.5f
+#define BOUNCE  0.5325f
 #define DAMPEN  2.25f
 
 static Vec2f PLAYER_SPEED = {0};
@@ -369,7 +369,7 @@ i32 main(i32 n, const char** args) {
             if (PLAYER.center.y <= 0.0f) {
                 PLAYER_SPEED.x *= FRICTION;
                 PLAYER.center.y = 0.0f;
-                PLAYER_SPEED.y  = -PLAYER_SPEED.y / BOUNCE;
+                PLAYER_SPEED.y  = -PLAYER_SPEED.y * BOUNCE;
                 if (PLAYER_SPEED.y < DAMPEN) {
                     PLAYER_SPEED.y = 0.0f;
                 }
