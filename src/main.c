@@ -81,6 +81,7 @@ static Vec2f CAMERA = (Vec2f){
 #define CAMERA_LATENCY ((Vec2f){.x = 125.0f, .y = 250.0f})
 
 #define RUN      0.1325f
+#define LEAP     0.2f
 #define FRICTION 0.9675f
 #define DRAG     0.945f
 
@@ -256,6 +257,12 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
     }
     case GLFW_KEY_W: {
         if (PLAYER_CAN_JUMP) {
+            if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+                PLAYER_SPEED.x += LEAP;
+            }
+            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+                PLAYER_SPEED.x -= LEAP;
+            }
             PLAYER_SPEED.y += JUMP;
             PLAYER_CAN_JUMP = FALSE;
         }
