@@ -159,6 +159,7 @@ static i32 UNIFORM_TIME_SECONDS;
     }
 
 static const char* read_file(const char* path) {
+    EXIT_IF(!path);
     const i32 file = open(path, O_RDONLY);
     EXIT_IF(file < 0);
     FileStat stat;
