@@ -73,8 +73,10 @@ static const char* PATH_SHADER_FRAG;
 #define CAMERA_INIT_X 0.0f
 #define CAMERA_INIT_Y 0.0f
 
-static f32 CAMERA_X = CAMERA_INIT_X;
-static f32 CAMERA_Y = CAMERA_INIT_Y;
+#define CAMERA_OFFSET ((Vec2f){.x = 0.0f, .y = 350.0f})
+
+static f32 CAMERA_X = CAMERA_INIT_X + CAMERA_OFFSET.x;
+static f32 CAMERA_Y = CAMERA_INIT_Y + CAMERA_OFFSET.y;
 
 #define CAMERA_LATENCY_X 125.0f
 #define CAMERA_LATENCY_Y 250.0f
@@ -367,8 +369,8 @@ i32 main(i32 n, const char** args) {
                 PLAYER_SPEED_X *= DRAG;
             }
             PLAYER.center.x += PLAYER_SPEED_X;
-            CAMERA_X -= (CAMERA_X - PLAYER.center.x) / CAMERA_LATENCY_X;
-            CAMERA_Y -= (CAMERA_Y - PLAYER.center.y) / CAMERA_LATENCY_Y;
+            CAMERA_X -= ((CAMERA_X - CAMERA_OFFSET.x) - PLAYER.center.x) / CAMERA_LATENCY_X;
+            CAMERA_Y -= ((CAMERA_Y - CAMERA_OFFSET.y) - PLAYER.center.y) / CAMERA_LATENCY_Y;
             delta -= FRAME_UPDATE_STEP;
         }
         prev = start;
