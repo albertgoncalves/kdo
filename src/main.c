@@ -41,8 +41,9 @@ typedef struct {
 #define CAP_BUFFER (1 << 10)
 static char BUFFER[CAP_BUFFER];
 
-#define WINDOW_X 1200
-#define WINDOW_Y 900
+#define WINDOW_X    1200
+#define WINDOW_Y    900
+#define WINDOW_NAME "float"
 
 #define PREFIX "  # "
 
@@ -286,7 +287,7 @@ i32 main(i32 n, const char** args) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, FALSE);
     GLFWwindow* window =
-        glfwCreateWindow(WINDOW_X, WINDOW_Y, "float", NULL, NULL);
+        glfwCreateWindow(WINDOW_X, WINDOW_Y, WINDOW_NAME, NULL, NULL);
     if (!window) {
         glfwTerminate();
         EXIT();
