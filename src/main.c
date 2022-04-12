@@ -112,6 +112,7 @@ static u32  LEN_RECTS = 0;
 
 #define PLAYER RECTS[0]
 
+static Vec2f PLAYER_CENTER_INIT;
 static Vec2f PLAYER_SPEED    = {0};
 static Bool  PLAYER_CAN_JUMP = FALSE;
 
@@ -320,7 +321,7 @@ static Rect parse_rect(const char** buffer) {
 
 static void load_config(const char* path) {
     LEN_BUFFER = 0;
-    LEN_RECTS  = 0;
+    LEN_RECTS  = 1;
 
     MemMap      map    = path_to_map(path);
     const char* config = map_to_buffer(map);
@@ -361,6 +362,10 @@ static void load_config(const char* path) {
             BOUNCE = parse_f32(&config);
         } else if (eq(key, STRING("DAMPEN"))) {
             DAMPEN = parse_f32(&config);
+        } else if (eq(key, STRING("PLAYER_CENTER_INIT"))) {
+            PLAYER_CENTER_INIT = parse_vec2f(&config);
+        } else if (eq(key, STRING("PLAYER_SCALE"))) {
+            RECTS[0].scale = parse_vec2f(&config);
         } else if (eq(key, STRING("RECTS"))) {
             EXIT_IF(*config != '{');
             ++config;
@@ -376,8 +381,6 @@ static void load_config(const char* path) {
             EXIT();
         }
     }
-    CAMERA.x = CAMERA_INIT.x + CAMERA_OFFSET.x;
-    CAMERA.y = CAMERA_INIT.y + CAMERA_OFFSET.y;
     EXIT_IF(munmap(map.address, map.len));
 }
 
@@ -494,6 +497,9 @@ i32 main(i32 n, const char** args) {
     EXIT_IF(n < 2);
     PATH_CONFIG = args[1];
     load_config(PATH_CONFIG);
+    PLAYER.center = PLAYER_CENTER_INIT;
+    CAMERA.x      = CAMERA_INIT.x + CAMERA_OFFSET.x;
+    CAMERA.y      = CAMERA_INIT.y + CAMERA_OFFSET.y;
 
     printf("GLFW version : %s\n", glfwGetVersionString());
 

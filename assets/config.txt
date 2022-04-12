@@ -3,6 +3,9 @@ PATH_SHADER_FRAG        "./src/frag.glsl"
 
 FRAME_UPDATE_COUNT      7.0
 
+PLAYER_CENTER_INIT      0.0     500.0
+PLAYER_SCALE            50.0    50.0
+
 CAMERA_INIT             0.0     0.0
 CAMERA_OFFSET           0.0     450.0
 CAMERA_LATENCY          125.0   375.0
@@ -19,6 +22,5 @@ BOUNCE                  0.5325
 DAMPEN                  2.75
 
 RECTS {
-    0.0     0.0         50.0        50.0    # PLAYER
     0.0     -30.0       2400.0      10.0
 }
