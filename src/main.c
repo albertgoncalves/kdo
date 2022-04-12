@@ -111,7 +111,6 @@ static u32  LEN_RECTS = 0;
 static Vec2f PLAYER_SPEED    = {0};
 static Bool  PLAYER_CAN_JUMP = FALSE;
 
-// NOTE: This is ugly stuff. These shouldn't *need* to be global variables.
 static u32 PROGRAM;
 static i32 UNIFORM_CAMERA;
 static i32 UNIFORM_WINDOW;
