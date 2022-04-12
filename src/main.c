@@ -66,7 +66,7 @@ static const Vec3u INDICES[] = {
 static const char* PATH_SHADER_VERT;
 static const char* PATH_SHADER_FRAG;
 
-#define FRAME_UPDATE_COUNT 8.0
+#define FRAME_UPDATE_COUNT 7.5
 #define FRAME_DURATION     ((1.0 / 60.0) * MICROSECONDS)
 #define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
@@ -78,14 +78,14 @@ static Vec2f CAMERA = (Vec2f){
     .y = CAMERA_INIT.y + CAMERA_OFFSET.y,
 };
 
-#define CAMERA_LATENCY ((Vec2f){.x = 125.0f, .y = 250.0f})
+#define CAMERA_LATENCY ((Vec2f){.x = 125.0f, .y = 350.0f})
 
 #define RUN      0.1325f
 #define LEAP     0.2f
 #define FRICTION 0.9675f
-#define DRAG     0.945f
+#define DRAG     0.95f
 
-#define JUMP    7.5f
+#define JUMP    5.0f
 #define GRAVITY 0.0525f
 #define DROP    7.5f
 #define BOUNCE  1.5f
@@ -102,7 +102,7 @@ static Bool PLAYER_CAN_JUMP = FALSE;
 
 static Rect RECTS[] = {
     PLAYER_INIT,
-    {{0.0f, -60.0f}, {2400.0f, 20.0f}},
+    {{0.0f, -30.0f}, {2400.0f, 10.0f}},
 };
 
 #define CAP_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
