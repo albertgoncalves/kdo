@@ -88,6 +88,7 @@ static Vec2f CAMERA = (Vec2f){
 #define JUMP    7.5f
 #define GRAVITY 0.0525f
 #define DROP    7.5f
+#define BOUNCE  1.5f
 
 static Vec2f PLAYER_SPEED = {0};
 
@@ -264,7 +265,6 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
                 PLAYER_SPEED.x -= LEAP;
             }
             PLAYER_SPEED.y += JUMP;
-            PLAYER_CAN_JUMP = FALSE;
         }
         break;
     }
@@ -367,10 +367,11 @@ i32 main(i32 n, const char** args) {
             if (PLAYER.center.y <= 0.0f) {
                 PLAYER_SPEED.x *= FRICTION;
                 PLAYER.center.y = 0.0f;
-                PLAYER_SPEED.y  = 0.0f;
+                PLAYER_SPEED.y  = -PLAYER_SPEED.y / BOUNCE;
                 PLAYER_CAN_JUMP = TRUE;
             } else {
                 PLAYER_SPEED.x *= DRAG;
+                PLAYER_CAN_JUMP = FALSE;
             }
             PLAYER.center.x += PLAYER_SPEED.x;
             CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
