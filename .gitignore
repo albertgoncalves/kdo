@@ -4,9 +4,14 @@
 !.shellhook
 !README.md
 !.clang-format
+
 !scripts/
 !*.sh
+
 !src/
 !*.h
 !*.c
 !*.glsl
+
+!assets/
+!assets/config.txt

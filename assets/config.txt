@@ -1,0 +1,26 @@
+WINDOW_NAME             "float"
+
+PATH_SHADER_VERT        "./src/vert.glsl"
+PATH_SHADER_FRAG        "./src/frag.glsl"
+
+FRAME_UPDATE_COUNT      7.0
+
+CAMERA_INIT             0.0     0.0
+CAMERA_OFFSET           0.0     450.0
+CAMERA_LATENCY          125.0   375.0
+
+RUN                     0.1325
+LEAP                    0.2
+FRICTION                0.9675
+DRAG                    0.95
+
+JUMP                    5.5
+GRAVITY                 0.0525
+DROP                    7.5
+BOUNCE                  0.5325
+DAMPEN                  2.75
+
+RECTS {
+    0.0     0.0         50.0        50.0    # PLAYER
+    0.0     -30.0       2400.0      10.0
+}

@@ -23,7 +23,8 @@ flags=(
     -Wno-c2x-extensions
     -Wno-declaration-after-statement
     -Wno-extra-semi-stmt
+    -Wno-padded
 )
 clang-format -i -verbose "$WD/src/"*
 mold -run clang "${flags[@]}" -o "$WD/bin/main" "$WD/src/main.c"
-"$WD/bin/main" "$WD/src/vert.glsl" "$WD/src/frag.glsl"
+"$WD/bin/main" "$WD/assets/config.txt"

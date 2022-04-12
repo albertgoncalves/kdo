@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -22,6 +23,11 @@ typedef enum {
 } Bool;
 
 typedef struct {
+    const char* buffer;
+    u32         len;
+} String;
+
+typedef struct {
     f32 x, y;
 } Vec2f;
 
@@ -38,12 +44,20 @@ typedef struct {
 
 #define ATTRIBUTE(x) __attribute__((x))
 
+#define STRING(literal)      \
+    ((String){               \
+        literal,             \
+        sizeof(literal) - 1, \
+    })
+
 #define CAP_BUFFER (1 << 10)
 static char BUFFER[CAP_BUFFER];
+static u32  LEN_BUFFER = 0;
 
-#define WINDOW_X    1200
-#define WINDOW_Y    900
-#define WINDOW_NAME "float"
+#define WINDOW_X 1200
+#define WINDOW_Y 900
+
+static const char* WINDOW_NAME;
 
 #define PREFIX "  # "
 
@@ -64,52 +78,38 @@ static const Vec3u INDICES[] = {
     {1, 2, 3},
 };
 
+static const char* PATH_CONFIG;
 static const char* PATH_SHADER_VERT;
 static const char* PATH_SHADER_FRAG;
 
-#define FRAME_UPDATE_COUNT 7.5
-#define FRAME_DURATION     ((1.0 / 60.0) * MICROSECONDS)
-#define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
+static f64 FRAME_UPDATE_COUNT;
+#define FRAME_DURATION    ((1.0 / 60.0) * MICROSECONDS)
+#define FRAME_UPDATE_STEP (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
-#define CAMERA_INIT   ((Vec2f){0})
-#define CAMERA_OFFSET ((Vec2f){.x = 0.0f, .y = 350.0f})
+static Vec2f CAMERA_INIT;
+static Vec2f CAMERA_OFFSET;
+static Vec2f CAMERA_LATENCY;
+static Vec2f CAMERA;
 
-static Vec2f CAMERA = (Vec2f){
-    .x = CAMERA_INIT.x + CAMERA_OFFSET.x,
-    .y = CAMERA_INIT.y + CAMERA_OFFSET.y,
-};
+static f32 RUN;
+static f32 LEAP;
+static f32 FRICTION;
+static f32 DRAG;
 
-#define CAMERA_LATENCY ((Vec2f){.x = 125.0f, .y = 350.0f})
+static f32 JUMP;
+static f32 GRAVITY;
+static f32 DROP;
+static f32 BOUNCE;
+static f32 DAMPEN;
 
-#define RUN      0.1325f
-#define LEAP     0.2f
-#define FRICTION 0.9675f
-#define DRAG     0.95f
-
-#define JUMP    5.0f
-#define GRAVITY 0.0525f
-#define DROP    7.5f
-#define BOUNCE  0.5325f
-#define DAMPEN  2.25f
-
-static Vec2f PLAYER_SPEED = {0};
-
-static Bool PLAYER_CAN_JUMP = FALSE;
-
-#define PLAYER_INIT                         \
-    ((Rect){                                \
-        .center = {0},                      \
-        .scale  = {.x = 50.0f, .y = 50.0f}, \
-    })
-
-static Rect RECTS[] = {
-    PLAYER_INIT,
-    {{0.0f, -30.0f}, {2400.0f, 10.0f}},
-};
-
-#define CAP_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
+#define CAP_RECTS (1 << 6)
+static Rect RECTS[CAP_RECTS];
+static u32  LEN_RECTS = 0;
 
 #define PLAYER RECTS[0]
+
+static Vec2f PLAYER_SPEED    = {0};
+static Bool  PLAYER_CAN_JUMP = FALSE;
 
 // NOTE: This is ugly stuff. These shouldn't *need* to be global variables.
 static u32 PROGRAM;
@@ -158,6 +158,22 @@ static i32 UNIFORM_TIME_SECONDS;
         }                                                  \
     }
 
+#define IS_DIGIT(x) (('0' <= (x)) && ((x) <= '9'))
+
+#define IS_SPACE(x) (((x) == ' ') || ((x) == '\n'))
+
+static Bool eq(String a, String b) {
+    return (a.len == b.len) && (!memcmp(a.buffer, b.buffer, a.len));
+}
+
+static const char* copy_into_buffer(String string) {
+    char* copy = &BUFFER[LEN_BUFFER];
+    memcpy(copy, string.buffer, string.len);
+    LEN_BUFFER += string.len;
+    BUFFER[LEN_BUFFER++] = '\0';
+    return copy;
+}
+
 static const char* read_file(const char* path) {
     EXIT_IF(!path);
     const i32 file = open(path, O_RDONLY);
@@ -170,6 +186,175 @@ static const char* read_file(const char* path) {
     const char* string = (const char*)address;
     close(file);
     return string;
+}
+
+static void skip_spaces(const char* buffer, u32* i) {
+    for (;;) {
+        while (IS_SPACE(buffer[*i])) {
+            ++(*i);
+        }
+        if (buffer[*i] == '#') {
+            ++(*i);
+            while (buffer[(*i)++] != '\n') {
+            }
+            continue;
+        }
+        return;
+    }
+}
+
+static String parse_key(const char* buffer, u32* i) {
+    String string = {
+        .buffer = &buffer[*i],
+    };
+    while (!IS_SPACE(buffer[*i])) {
+        EXIT_IF(buffer[*i] == '\0');
+        ++(*i);
+    }
+    string.len = (u32)(&buffer[(*i)++] - string.buffer);
+    return string;
+}
+
+static String parse_string(const char* buffer, u32* i) {
+    EXIT_IF(buffer[(*i)++] != '"');
+    String string = {
+        .buffer = &buffer[*i],
+    };
+    while (buffer[*i] != '"') {
+        EXIT_IF(buffer[*i] == '\0');
+        ++(*i);
+    }
+    string.len = (u32)(&buffer[(*i)++] - string.buffer);
+    return string;
+}
+
+static f32 parse_f32(const char* buffer, u32* i) {
+    Bool negate = FALSE;
+    if (buffer[*i] == '-') {
+        negate = TRUE;
+        ++(*i);
+    }
+    f32 a = 0;
+    while (IS_DIGIT(buffer[*i])) {
+        a = (a * 10) + ((f32)(buffer[(*i)++] - '0'));
+    }
+    EXIT_IF(buffer[(*i)++] != '.');
+    f32 b = 0.0f;
+    f32 c = 1.0f;
+    while (IS_DIGIT(buffer[*i])) {
+        b = (b * 10.0f) + ((f32)(buffer[(*i)++] - '0'));
+        c *= 10.0f;
+    }
+    a += b / c;
+    if (negate) {
+        return -a;
+    }
+    return a;
+}
+
+static f64 parse_f64(const char* buffer, u32* i) {
+    Bool negate = FALSE;
+    if (buffer[*i] == '-') {
+        negate = TRUE;
+        ++(*i);
+    }
+    f64 a = 0;
+    while (IS_DIGIT(buffer[*i])) {
+        a = (a * 10) + ((f64)(buffer[(*i)++] - '0'));
+    }
+    EXIT_IF(buffer[(*i)++] != '.');
+    f64 b = 0.0;
+    f64 c = 1.0;
+    while (IS_DIGIT(buffer[*i])) {
+        b = (b * 10.0) + ((f64)(buffer[(*i)++] - '0'));
+        c *= 10.0;
+    }
+    a += b / c;
+    if (negate) {
+        return -a;
+    }
+    return a;
+}
+
+static Vec2f parse_vec2f(const char* buffer, u32* i) {
+    Vec2f vec;
+    vec.x = parse_f32(buffer, i);
+    skip_spaces(buffer, i);
+    vec.y = parse_f32(buffer, i);
+    return vec;
+}
+
+static Rect parse_rect(const char* buffer, u32* i) {
+    Rect rect;
+    rect.center = parse_vec2f(buffer, i);
+    skip_spaces(buffer, i);
+    rect.scale = parse_vec2f(buffer, i);
+    return rect;
+}
+
+static void load_config(const char* path) {
+    const char* config = read_file(path);
+
+    LEN_BUFFER = 0;
+    LEN_RECTS  = 0;
+    for (u32 i = 0;;) {
+        skip_spaces(config, &i);
+        if (config[i] == '\0') {
+            break;
+        }
+        String key = parse_key(config, &i);
+        skip_spaces(config, &i);
+        if (eq(key, STRING("WINDOW_NAME"))) {
+            WINDOW_NAME = copy_into_buffer(parse_string(config, &i));
+        } else if (eq(key, STRING("PATH_SHADER_VERT"))) {
+            PATH_SHADER_VERT = copy_into_buffer(parse_string(config, &i));
+        } else if (eq(key, STRING("PATH_SHADER_FRAG"))) {
+            PATH_SHADER_FRAG = copy_into_buffer(parse_string(config, &i));
+        } else if (eq(key, STRING("FRAME_UPDATE_COUNT"))) {
+            FRAME_UPDATE_COUNT = parse_f64(config, &i);
+        } else if (eq(key, STRING("CAMERA_INIT"))) {
+            CAMERA_INIT = parse_vec2f(config, &i);
+        } else if (eq(key, STRING("CAMERA_OFFSET"))) {
+            CAMERA_OFFSET = parse_vec2f(config, &i);
+        } else if (eq(key, STRING("CAMERA_LATENCY"))) {
+            CAMERA_LATENCY = parse_vec2f(config, &i);
+        } else if (eq(key, STRING("RUN"))) {
+            RUN = parse_f32(config, &i);
+        } else if (eq(key, STRING("LEAP"))) {
+            LEAP = parse_f32(config, &i);
+        } else if (eq(key, STRING("FRICTION"))) {
+            FRICTION = parse_f32(config, &i);
+        } else if (eq(key, STRING("DRAG"))) {
+            DRAG = parse_f32(config, &i);
+        } else if (eq(key, STRING("JUMP"))) {
+            JUMP = parse_f32(config, &i);
+        } else if (eq(key, STRING("GRAVITY"))) {
+            GRAVITY = parse_f32(config, &i);
+        } else if (eq(key, STRING("DROP"))) {
+            DROP = parse_f32(config, &i);
+        } else if (eq(key, STRING("BOUNCE"))) {
+            BOUNCE = parse_f32(config, &i);
+        } else if (eq(key, STRING("DAMPEN"))) {
+            DAMPEN = parse_f32(config, &i);
+        } else if (eq(key, STRING("RECTS"))) {
+            EXIT_IF(config[i] != '{');
+            ++i;
+            skip_spaces(config, &i);
+            while (config[i] != '}') {
+                EXIT_IF(CAP_RECTS <= LEN_RECTS);
+                RECTS[LEN_RECTS++] = parse_rect(config, &i);
+                skip_spaces(config, &i);
+            }
+            ++i;
+        } else {
+            printf(PREFIX "unexpected key: `%.*s`\n", key.len, key.buffer);
+            EXIT();
+        }
+    }
+    CAMERA = (Vec2f){
+        .x = CAMERA_INIT.x + CAMERA_OFFSET.x,
+        .y = CAMERA_INIT.y + CAMERA_OFFSET.y,
+    };
 }
 
 static f64 now(void) {
@@ -187,8 +372,8 @@ static i32 compile_shader(const char* source, u32 shader) {
     i32 status = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (!status) {
-        glGetShaderInfoLog(shader, CAP_BUFFER, NULL, BUFFER);
-        printf("%s", BUFFER);
+        glGetShaderInfoLog(shader, CAP_BUFFER, NULL, &BUFFER[LEN_BUFFER]);
+        printf("%s", &BUFFER[LEN_BUFFER]);
     }
     return status;
 }
@@ -225,8 +410,8 @@ static i32 compile_program(void) {
     i32 status = 0;
     glGetProgramiv(PROGRAM, GL_LINK_STATUS, &status);
     if (!status) {
-        glGetProgramInfoLog(PROGRAM, CAP_BUFFER, NULL, BUFFER);
-        printf("%s", BUFFER);
+        glGetProgramInfoLog(PROGRAM, CAP_BUFFER, NULL, &BUFFER[LEN_BUFFER]);
+        printf("%s", &BUFFER[LEN_BUFFER]);
         return status;
     }
     glDeleteShader(shader_vert);
@@ -251,11 +436,11 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
         break;
     }
     case GLFW_KEY_R: {
+        printf(PREFIX "loading config\n");
+        load_config(PATH_CONFIG);
         glDeleteProgram(PROGRAM);
         if (!compile_program()) {
             printf(PREFIX "unable to compile shader\n");
-        } else {
-            printf(PREFIX "shaders re-compiled\n");
         }
         break;
     }
@@ -275,9 +460,9 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
 }
 
 i32 main(i32 n, const char** args) {
-    EXIT_IF(n < 3);
-    PATH_SHADER_VERT = args[1];
-    PATH_SHADER_FRAG = args[2];
+    EXIT_IF(n < 2);
+    PATH_CONFIG = args[1];
+    load_config(PATH_CONFIG);
 
     printf("GLFW version : %s\n", glfwGetVersionString());
 
@@ -395,7 +580,7 @@ i32 main(i32 n, const char** args) {
 #else
         glBufferSubData(GL_ARRAY_BUFFER,
                         0,
-                        CAP_RECTS * sizeof(RECTS[0]),
+                        LEN_RECTS * sizeof(RECTS[0]),
                         RECTS);
 #endif
         glClear(GL_COLOR_BUFFER_BIT);
@@ -403,7 +588,7 @@ i32 main(i32 n, const char** args) {
                                 6,
                                 GL_UNSIGNED_INT,
                                 INDEX_VERTEX,
-                                CAP_RECTS);
+                                (i32)LEN_RECTS);
         EXIT_IF_GL_ERROR()
         glfwSwapBuffers(window);
 
