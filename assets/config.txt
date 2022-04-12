@@ -1,14 +1,14 @@
 PATH_SHADER_VERT        "./src/vert.glsl"
 PATH_SHADER_FRAG        "./src/frag.glsl"
 
-FRAME_UPDATE_COUNT      7.0
-
 PLAYER_CENTER_INIT      0.0     500.0
 PLAYER_SCALE            50.0    50.0
 
 CAMERA_INIT             0.0     0.0
 CAMERA_OFFSET           0.0     450.0
 CAMERA_LATENCY          125.0   375.0
+
+FRAME_UPDATE_COUNT      7.0
 
 RUN                     0.1325
 LEAP                    0.2
