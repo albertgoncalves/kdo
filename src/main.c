@@ -165,6 +165,7 @@ static Bool eq(String a, String b) {
 }
 
 static const char* copy_into_buffer(String string) {
+    EXIT_IF(CAP_BUFFER <= (LEN_BUFFER + string.len + 1));
     char* copy = &BUFFER[LEN_BUFFER];
     memcpy(copy, string.buffer, string.len);
     LEN_BUFFER += string.len;
@@ -366,7 +367,10 @@ static i32 compile_shader(const char* source, u32 shader) {
     i32 status = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (!status) {
-        glGetShaderInfoLog(shader, CAP_BUFFER, NULL, &BUFFER[LEN_BUFFER]);
+        glGetShaderInfoLog(shader,
+                           (i32)(CAP_BUFFER - LEN_BUFFER),
+                           NULL,
+                           &BUFFER[LEN_BUFFER]);
         printf("%s", &BUFFER[LEN_BUFFER]);
     }
     return status;
@@ -404,7 +408,10 @@ static i32 compile_program(void) {
     i32 status = 0;
     glGetProgramiv(PROGRAM, GL_LINK_STATUS, &status);
     if (!status) {
-        glGetProgramInfoLog(PROGRAM, CAP_BUFFER, NULL, &BUFFER[LEN_BUFFER]);
+        glGetProgramInfoLog(PROGRAM,
+                            (i32)(CAP_BUFFER - LEN_BUFFER),
+                            NULL,
+                            &BUFFER[LEN_BUFFER]);
         printf("%s", &BUFFER[LEN_BUFFER]);
         return status;
     }
