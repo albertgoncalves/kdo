@@ -70,16 +70,15 @@ static const char* PATH_SHADER_FRAG;
 #define FRAME_DURATION     ((1.0 / 60.0) * MICROSECONDS)
 #define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
-#define CAMERA_INIT_X 0.0f
-#define CAMERA_INIT_Y 0.0f
-
+#define CAMERA_INIT   ((Vec2f){0})
 #define CAMERA_OFFSET ((Vec2f){.x = 0.0f, .y = 350.0f})
 
-static f32 CAMERA_X = CAMERA_INIT_X + CAMERA_OFFSET.x;
-static f32 CAMERA_Y = CAMERA_INIT_Y + CAMERA_OFFSET.y;
+static Vec2f CAMERA = (Vec2f){
+    .x = CAMERA_INIT.x + CAMERA_OFFSET.x,
+    .y = CAMERA_INIT.y + CAMERA_OFFSET.y,
+};
 
-#define CAMERA_LATENCY_X 125.0f
-#define CAMERA_LATENCY_Y 250.0f
+#define CAMERA_LATENCY ((Vec2f){.x = 125.0f, .y = 250.0f})
 
 #define RUN      0.1325f
 #define FRICTION 0.9675f
@@ -89,20 +88,18 @@ static f32 CAMERA_Y = CAMERA_INIT_Y + CAMERA_OFFSET.y;
 #define GRAVITY 0.0525f
 #define DROP    7.5f
 
-static f32 PLAYER_SPEED_X = 0.0f;
-static f32 PLAYER_SPEED_Y = 0.0f;
+static Vec2f PLAYER_SPEED = {0};
 
 static Bool PLAYER_CAN_JUMP = FALSE;
 
-#define PLAYER_INIT_CENTER_X 0.0f
-#define PLAYER_INIT_CENTER_Y 0.0f
-
-#define PLAYER_INIT_SCALE_X 50.0f
-#define PLAYER_INIT_SCALE_Y PLAYER_INIT_SCALE_X
+#define PLAYER_INIT                         \
+    ((Rect){                                \
+        .center = {0},                      \
+        .scale  = {.x = 50.0f, .y = 50.0f}, \
+    })
 
 static Rect RECTS[] = {
-    {{PLAYER_INIT_CENTER_X, PLAYER_INIT_CENTER_Y},
-     {PLAYER_INIT_SCALE_X, PLAYER_INIT_SCALE_Y}},
+    PLAYER_INIT,
     {{0.0f, -60.0f}, {2400.0f, 20.0f}},
 };
 
@@ -259,7 +256,7 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
     }
     case GLFW_KEY_W: {
         if (PLAYER_CAN_JUMP) {
-            PLAYER_SPEED_Y += JUMP;
+            PLAYER_SPEED.y += JUMP;
             PLAYER_CAN_JUMP = FALSE;
         }
         break;
@@ -349,33 +346,35 @@ i32 main(i32 n, const char** args) {
         while (FRAME_UPDATE_STEP < delta) {
             glfwPollEvents();
             if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-                PLAYER_SPEED_X += RUN;
+                PLAYER_SPEED.x += RUN;
             }
             if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-                PLAYER_SPEED_X -= RUN;
+                PLAYER_SPEED.x -= RUN;
             }
             if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-                PLAYER_SPEED_Y -= GRAVITY * DROP;
+                PLAYER_SPEED.y -= GRAVITY * DROP;
             } else {
-                PLAYER_SPEED_Y -= GRAVITY;
+                PLAYER_SPEED.y -= GRAVITY;
             }
-            PLAYER.center.y += PLAYER_SPEED_Y;
+            PLAYER.center.y += PLAYER_SPEED.y;
             if (PLAYER.center.y <= 0.0f) {
-                PLAYER_SPEED_X *= FRICTION;
+                PLAYER_SPEED.x *= FRICTION;
                 PLAYER.center.y = 0.0f;
-                PLAYER_SPEED_Y  = 0.0f;
+                PLAYER_SPEED.y  = 0.0f;
                 PLAYER_CAN_JUMP = TRUE;
             } else {
-                PLAYER_SPEED_X *= DRAG;
+                PLAYER_SPEED.x *= DRAG;
             }
-            PLAYER.center.x += PLAYER_SPEED_X;
-            CAMERA_X -= ((CAMERA_X - CAMERA_OFFSET.x) - PLAYER.center.x) / CAMERA_LATENCY_X;
-            CAMERA_Y -= ((CAMERA_Y - CAMERA_OFFSET.y) - PLAYER.center.y) / CAMERA_LATENCY_Y;
+            PLAYER.center.x += PLAYER_SPEED.x;
+            CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
+                        CAMERA_LATENCY.x;
+            CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /
+                        CAMERA_LATENCY.y;
             delta -= FRAME_UPDATE_STEP;
         }
         prev = start;
 
-        glUniform2f(UNIFORM_CAMERA, CAMERA_X, CAMERA_Y);
+        glUniform2f(UNIFORM_CAMERA, CAMERA.x, CAMERA.y);
         glUniform1f(UNIFORM_TIME_SECONDS, (f32)glfwGetTime());
 #if 1
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
