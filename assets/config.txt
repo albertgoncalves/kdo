@@ -1,5 +1,3 @@
-WINDOW_NAME             "float"
-
 PATH_SHADER_VERT        "./src/vert.glsl"
 PATH_SHADER_FRAG        "./src/frag.glsl"
 

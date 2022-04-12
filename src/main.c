@@ -54,10 +54,9 @@ typedef struct {
 static char BUFFER[CAP_BUFFER];
 static u32  LEN_BUFFER = 0;
 
-#define WINDOW_X 1200
-#define WINDOW_Y 900
-
-static const char* WINDOW_NAME;
+#define WINDOW_X    1200
+#define WINDOW_Y    900
+#define WINDOW_NAME "float"
 
 #define PREFIX "  # "
 
@@ -303,9 +302,7 @@ static void load_config(const char* path) {
         }
         String key = parse_key(config, &i);
         skip_spaces(config, &i);
-        if (eq(key, STRING("WINDOW_NAME"))) {
-            WINDOW_NAME = copy_into_buffer(parse_string(config, &i));
-        } else if (eq(key, STRING("PATH_SHADER_VERT"))) {
+        if (eq(key, STRING("PATH_SHADER_VERT"))) {
             PATH_SHADER_VERT = copy_into_buffer(parse_string(config, &i));
         } else if (eq(key, STRING("PATH_SHADER_FRAG"))) {
             PATH_SHADER_FRAG = copy_into_buffer(parse_string(config, &i));
