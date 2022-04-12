@@ -123,10 +123,10 @@ static i32 UNIFORM_TIME_SECONDS;
         _exit(ERROR);                                       \
     }
 
-#define EXIT_WITH(x)                                               \
-    {                                                              \
-        printf("%s:%s:%d\n%s\n", __FILE__, __func__, __LINE__, x); \
-        _exit(ERROR);                                              \
+#define EXIT_WITH(x)                                                \
+    {                                                               \
+        printf("%s:%s:%d `%s`\n", __FILE__, __func__, __LINE__, x); \
+        _exit(ERROR);                                               \
     }
 
 #define EXIT_IF(condition)    \
