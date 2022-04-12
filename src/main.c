@@ -17,6 +17,11 @@ typedef double   f64;
 
 typedef struct stat FileStat;
 
+typedef struct {
+    void* address;
+    u32   len;
+} MemMap;
+
 typedef enum {
     FALSE = 0,
     TRUE,
@@ -50,7 +55,7 @@ typedef struct {
         sizeof(literal) - 1, \
     })
 
-#define CAP_BUFFER (1 << 10)
+#define CAP_BUFFER (1 << 12)
 static char BUFFER[CAP_BUFFER];
 static u32  LEN_BUFFER = 0;
 
@@ -164,7 +169,7 @@ static Bool eq(String a, String b) {
     return (a.len == b.len) && (!memcmp(a.buffer, b.buffer, a.len));
 }
 
-static const char* copy_into_buffer(String string) {
+static const char* string_to_buffer(String string) {
     EXIT_IF(CAP_BUFFER <= (LEN_BUFFER + string.len + 1));
     char* copy = &BUFFER[LEN_BUFFER];
     memcpy(copy, string.buffer, string.len);
@@ -173,18 +178,27 @@ static const char* copy_into_buffer(String string) {
     return copy;
 }
 
-static const char* read_file(const char* path) {
+static MemMap path_to_map(const char* path) {
     EXIT_IF(!path);
     const i32 file = open(path, O_RDONLY);
     EXIT_IF(file < 0);
     FileStat stat;
     EXIT_IF(fstat(file, &stat) < 0)
-    const void* address =
-        mmap(NULL, (u32)stat.st_size, PROT_READ, MAP_SHARED, file, 0);
-    EXIT_IF(address == MAP_FAILED);
-    const char* string = (const char*)address;
+    MemMap map = {
+        .len = (u32)stat.st_size,
+    };
+    map.address = mmap(NULL, map.len, PROT_READ, MAP_SHARED, file, 0);
+    EXIT_IF(map.address == MAP_FAILED);
     close(file);
-    return string;
+    return map;
+}
+
+static const char* map_to_buffer(MemMap map) {
+    String string = {
+        .buffer = (const char*)map.address,
+        .len    = map.len,
+    };
+    return string_to_buffer(string);
 }
 
 static void skip_spaces(const char** buffer) {
@@ -305,10 +319,11 @@ static Rect parse_rect(const char** buffer) {
 }
 
 static void load_config(const char* path) {
-    const char* config = read_file(path);
-
     LEN_BUFFER = 0;
     LEN_RECTS  = 0;
+
+    MemMap      map    = path_to_map(path);
+    const char* config = map_to_buffer(map);
     for (;;) {
         skip_spaces(&config);
         if (*config == '\0') {
@@ -363,6 +378,7 @@ static void load_config(const char* path) {
     }
     CAMERA.x = CAMERA_INIT.x + CAMERA_OFFSET.x;
     CAMERA.y = CAMERA_INIT.y + CAMERA_OFFSET.y;
+    EXIT_IF(munmap(map.address, map.len));
 }
 
 static f64 now(void) {
@@ -374,7 +390,9 @@ ATTRIBUTE(noreturn) static void callback_error(i32 code, const char* error) {
     _exit(ERROR);
 }
 
-static i32 compile_shader(const char* source, u32 shader) {
+static i32 compile_shader(const char* path, u32 shader) {
+    MemMap      map    = path_to_map(path);
+    const char* source = map_to_buffer(map);
     glShaderSource(shader, 1, &source, NULL);
     glCompileShader(shader);
     i32 status = 0;
@@ -386,6 +404,7 @@ static i32 compile_shader(const char* source, u32 shader) {
                            &BUFFER[LEN_BUFFER]);
         printf("%s", &BUFFER[LEN_BUFFER]);
     }
+    EXIT_IF(munmap(map.address, map.len));
     return status;
 }
 
@@ -402,15 +421,13 @@ static i32 compile_program(void) {
     const u32 shader_vert = glCreateShader(GL_VERTEX_SHADER);
     const u32 shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
     {
-        const i32 status =
-            compile_shader(read_file(PATH_SHADER_VERT), shader_vert);
+        const i32 status = compile_shader(PATH_SHADER_VERT, shader_vert);
         if (!status) {
             return status;
         }
     }
     {
-        const i32 status =
-            compile_shader(read_file(PATH_SHADER_FRAG), shader_frag);
+        const i32 status = compile_shader(PATH_SHADER_FRAG, shader_frag);
         if (!status) {
             return status;
         }
