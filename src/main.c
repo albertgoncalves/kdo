@@ -351,10 +351,8 @@ static void load_config(const char* path) {
             EXIT();
         }
     }
-    CAMERA = (Vec2f){
-        .x = CAMERA_INIT.x + CAMERA_OFFSET.x,
-        .y = CAMERA_INIT.y + CAMERA_OFFSET.y,
-    };
+    CAMERA.x = CAMERA_INIT.x + CAMERA_OFFSET.x;
+    CAMERA.y = CAMERA_INIT.y + CAMERA_OFFSET.y;
 }
 
 static f64 now(void) {
