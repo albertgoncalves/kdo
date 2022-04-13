@@ -13,7 +13,7 @@ uniform float TIME_SECONDS;
 void main() {
     gl_Position = vec4(
         (((VERT_IN_POSITION * VERT_IN_SCALE) + VERT_IN_TRANSLATE) - CAMERA) /
-            WINDOW,
+            (WINDOW / 2.0f),
         0.0f,
         1.0f);
 }
