@@ -688,9 +688,8 @@ i32 main(i32 n, const char** args) {
                 PLAYER.center.y += PLAYER_SPEED.y;
             }
             if (PLAYER.center.y < RESET) {
-                PLAYER.center  = PLAYER_CENTER_INIT;
-                PLAYER_SPEED.x = 0.0f;
-                PLAYER_SPEED.y = 0.0f;
+                PLAYER.center = PLAYER_CENTER_INIT;
+                PLAYER_SPEED  = (Vec2f){0};
             }
             PLAYER_CAN_JUMP = PLAYER_COLLIDE_X || PLAYER_COLLIDE_Y;
             CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
