@@ -103,8 +103,11 @@ static f32 DRAG;
 static f32 JUMP;
 static f32 GRAVITY;
 static f32 DROP;
+static f32 STICK;
+static f32 GRAB;
+static f32 RESET;
+
 static f32 BOUNCE;
-static f32 DAMPEN;
 
 #define CAP_RECTS (1 << 6)
 static Rect RECTS[CAP_RECTS];
@@ -113,8 +116,10 @@ static u32  LEN_RECTS = 0;
 #define PLAYER RECTS[0]
 
 static Vec2f PLAYER_CENTER_INIT;
-static Vec2f PLAYER_SPEED    = {0};
-static Bool  PLAYER_CAN_JUMP = FALSE;
+static Vec2f PLAYER_SPEED = {0};
+static Bool  PLAYER_COLLIDE_X;
+static Bool  PLAYER_COLLIDE_Y;
+static Bool  PLAYER_CAN_JUMP;
 
 static u32 PROGRAM;
 static i32 UNIFORM_CAMERA;
@@ -360,8 +365,12 @@ static void load_config(const char* path) {
             DROP = parse_f32(&config);
         } else if (eq(key, STRING("BOUNCE"))) {
             BOUNCE = parse_f32(&config);
-        } else if (eq(key, STRING("DAMPEN"))) {
-            DAMPEN = parse_f32(&config);
+        } else if (eq(key, STRING("STICK"))) {
+            STICK = parse_f32(&config);
+        } else if (eq(key, STRING("GRAB"))) {
+            GRAB = parse_f32(&config);
+        } else if (eq(key, STRING("RESET"))) {
+            RESET = parse_f32(&config);
         } else if (eq(key, STRING("PLAYER_CENTER_INIT"))) {
             PLAYER_CENTER_INIT = parse_vec2f(&config);
         } else if (eq(key, STRING("PLAYER_SCALE"))) {
@@ -479,18 +488,52 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
         break;
     }
     case GLFW_KEY_W: {
-        if (PLAYER_CAN_JUMP) {
+        if (!PLAYER_CAN_JUMP) {
+            break;
+        }
+        if (PLAYER_COLLIDE_X) {
             if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-                PLAYER_SPEED.x += LEAP;
-            }
-            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
                 PLAYER_SPEED.x -= LEAP;
             }
-            PLAYER_SPEED.y += JUMP;
+            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+                PLAYER_SPEED.x += LEAP;
+            }
         }
+        PLAYER_SPEED.y += JUMP;
         break;
     }
     }
+}
+
+static Bool intersect(Rect a, Rect b) {
+    Vec2f a_scale_half = {
+        .x = a.scale.x / 2.0f,
+        .y = a.scale.y / 2.0f,
+    };
+    Vec2f b_scale_half = {
+        .x = b.scale.x / 2.0f,
+        .y = b.scale.y / 2.0f,
+    };
+    Vec2f a_left_bottom = {
+        .x = a.center.x - a_scale_half.x,
+        .y = a.center.y - a_scale_half.y,
+    };
+    Vec2f b_left_bottom = {
+        .x = b.center.x - b_scale_half.x,
+        .y = b.center.y - b_scale_half.y,
+    };
+    Vec2f a_right_top = {
+        .x = a.center.x + a_scale_half.x,
+        .y = a.center.y + a_scale_half.y,
+    };
+    Vec2f b_right_top = {
+        .x = b.center.x + b_scale_half.x,
+        .y = b.center.y + b_scale_half.y,
+    };
+    return ((a_left_bottom.x < b_right_top.x) &&
+            (b_left_bottom.x < a_right_top.x) &&
+            (a_left_bottom.y < b_right_top.y) &&
+            (b_left_bottom.y < a_right_top.y));
 }
 
 i32 main(i32 n, const char** args) {
@@ -588,20 +631,68 @@ i32 main(i32 n, const char** args) {
             } else {
                 PLAYER_SPEED.y -= GRAVITY;
             }
-            PLAYER.center.y += PLAYER_SPEED.y;
-            if (PLAYER.center.y <= 0.0f) {
+            Rect left_right = {
+                .center = {.y = PLAYER.center.y},
+                .scale  = {.y = PLAYER.scale.y},
+            };
+            if (PLAYER_SPEED.x < 0.0f) {
+                left_right.center.x = PLAYER.center.x +
+                                      (-PLAYER.scale.x / 2.0f) +
+                                      (PLAYER_SPEED.x / 2.0f);
+                left_right.scale.x = -PLAYER_SPEED.x;
+            } else {
+                left_right.center.x = PLAYER.center.x +
+                                      (PLAYER.scale.x / 2.0f) +
+                                      (PLAYER_SPEED.x / 2.0f);
+                left_right.scale.x = PLAYER_SPEED.x;
+            }
+            Rect bottom_top = {
+                .center = {.x = PLAYER.center.x},
+                .scale  = {.x = PLAYER.scale.x},
+            };
+            if (PLAYER_SPEED.y < 0.0f) {
+                bottom_top.center.y = PLAYER.center.y +
+                                      (-PLAYER.scale.y / 2.0f) +
+                                      (PLAYER_SPEED.y / 2.0f);
+                bottom_top.scale.y = -PLAYER_SPEED.y;
+            } else {
+                bottom_top.center.y = PLAYER.center.y +
+                                      (PLAYER.scale.y / 2.0f) +
+                                      (PLAYER_SPEED.y / 2.0f);
+                bottom_top.scale.y = PLAYER_SPEED.y;
+            }
+            PLAYER_COLLIDE_X = FALSE;
+            PLAYER_COLLIDE_Y = FALSE;
+            for (u32 i = 1; i < LEN_RECTS; ++i) {
+                if (intersect(left_right, RECTS[i])) {
+                    PLAYER_COLLIDE_X = TRUE;
+                }
+                if (intersect(bottom_top, RECTS[i])) {
+                    PLAYER_COLLIDE_Y = TRUE;
+                }
+            }
+            if (PLAYER_COLLIDE_X) {
+                PLAYER_SPEED.x = -PLAYER_SPEED.x * BOUNCE;
+                PLAYER_SPEED.y *= GRAB;
+            } else {
+                PLAYER.center.x += PLAYER_SPEED.x;
+            }
+            if (PLAYER_COLLIDE_Y) {
                 PLAYER_SPEED.x *= FRICTION;
-                PLAYER.center.y = 0.0f;
-                PLAYER_SPEED.y  = -PLAYER_SPEED.y * BOUNCE;
-                if (PLAYER_SPEED.y < DAMPEN) {
+                PLAYER_SPEED.y = -PLAYER_SPEED.y * BOUNCE;
+                if (PLAYER_SPEED.y < STICK) {
                     PLAYER_SPEED.y = 0.0f;
                 }
-                PLAYER_CAN_JUMP = TRUE;
             } else {
                 PLAYER_SPEED.x *= DRAG;
-                PLAYER_CAN_JUMP = FALSE;
+                PLAYER.center.y += PLAYER_SPEED.y;
             }
-            PLAYER.center.x += PLAYER_SPEED.x;
+            if (PLAYER.center.y < RESET) {
+                PLAYER.center  = PLAYER_CENTER_INIT;
+                PLAYER_SPEED.x = 0.0f;
+                PLAYER_SPEED.y = 0.0f;
+            }
+            PLAYER_CAN_JUMP = PLAYER_COLLIDE_X || PLAYER_COLLIDE_Y;
             CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
                         CAMERA_LATENCY.x;
             CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /

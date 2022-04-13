@@ -18,8 +18,11 @@ DRAG                    0.95
 JUMP                    5.0
 GRAVITY                 0.0425
 DROP                    7.5
+STICK                   0.785
+GRAB                    0.9
+RESET                   -900.0
+
 BOUNCE                  0.5325
-DAMPEN                  2.75
 
 RECTS {
     0.0     -30.0       900.0   10.0
