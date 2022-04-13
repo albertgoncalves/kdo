@@ -636,14 +636,14 @@ i32 main(i32 n, const char** args) {
                 .scale  = {.y = PLAYER.scale.y},
             };
             if (PLAYER_SPEED.x < 0.0f) {
-                left_right.center.x = PLAYER.center.x +
-                                      (-PLAYER.scale.x / 2.0f) +
-                                      (PLAYER_SPEED.x / 2.0f);
+                left_right.center.x =
+                    PLAYER.center.x +
+                    ((-PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
                 left_right.scale.x = -PLAYER_SPEED.x;
             } else {
-                left_right.center.x = PLAYER.center.x +
-                                      (PLAYER.scale.x / 2.0f) +
-                                      (PLAYER_SPEED.x / 2.0f);
+                left_right.center.x =
+                    PLAYER.center.x +
+                    ((PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
                 left_right.scale.x = PLAYER_SPEED.x;
             }
             Rect bottom_top = {
@@ -651,14 +651,14 @@ i32 main(i32 n, const char** args) {
                 .scale  = {.x = PLAYER.scale.x},
             };
             if (PLAYER_SPEED.y < 0.0f) {
-                bottom_top.center.y = PLAYER.center.y +
-                                      (-PLAYER.scale.y / 2.0f) +
-                                      (PLAYER_SPEED.y / 2.0f);
+                bottom_top.center.y =
+                    PLAYER.center.y +
+                    ((-PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
                 bottom_top.scale.y = -PLAYER_SPEED.y;
             } else {
-                bottom_top.center.y = PLAYER.center.y +
-                                      (PLAYER.scale.y / 2.0f) +
-                                      (PLAYER_SPEED.y / 2.0f);
+                bottom_top.center.y =
+                    PLAYER.center.y +
+                    ((PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
                 bottom_top.scale.y = PLAYER_SPEED.y;
             }
             PLAYER_COLLIDE_X = FALSE;
