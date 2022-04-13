@@ -190,17 +190,18 @@ static MemMap path_to_map(const char* path) {
     EXIT_IF(file < 0);
     FileStat stat;
     EXIT_IF(fstat(file, &stat) < 0)
-    MemMap map = {
+    const MemMap map = {
+        .address =
+            mmap(NULL, (u32)stat.st_size, PROT_READ, MAP_SHARED, file, 0),
         .len = (u32)stat.st_size,
     };
-    map.address = mmap(NULL, map.len, PROT_READ, MAP_SHARED, file, 0);
     EXIT_IF(map.address == MAP_FAILED);
     close(file);
     return map;
 }
 
 static const char* map_to_buffer(MemMap map) {
-    String string = {
+    const String string = {
         .buffer = (const char*)map.address,
         .len    = map.len,
     };
@@ -328,14 +329,14 @@ static void load_config(const char* path) {
     LEN_BUFFER = 0;
     LEN_RECTS  = 1;
 
-    MemMap      map    = path_to_map(path);
-    const char* config = map_to_buffer(map);
+    const MemMap map    = path_to_map(path);
+    const char*  config = map_to_buffer(map);
     for (;;) {
         skip_spaces(&config);
         if (*config == '\0') {
             break;
         }
-        String key = parse_key(&config);
+        const String key = parse_key(&config);
         skip_spaces(&config);
         if (eq(key, STRING("PATH_SHADER_VERT"))) {
             PATH_SHADER_VERT = string_to_buffer(parse_string(&config));
@@ -403,8 +404,8 @@ ATTRIBUTE(noreturn) static void callback_error(i32 code, const char* error) {
 }
 
 static i32 compile_shader(const char* path, u32 shader) {
-    MemMap      map    = path_to_map(path);
-    const char* source = map_to_buffer(map);
+    const MemMap map    = path_to_map(path);
+    const char*  source = map_to_buffer(map);
     glShaderSource(shader, 1, &source, NULL);
     glCompileShader(shader);
     i32 status = 0;
@@ -506,27 +507,27 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
 }
 
 static Bool intersect(Rect a, Rect b) {
-    Vec2f a_scale_half = {
+    const Vec2f a_scale_half = {
         .x = a.scale.x / 2.0f,
         .y = a.scale.y / 2.0f,
     };
-    Vec2f b_scale_half = {
+    const Vec2f b_scale_half = {
         .x = b.scale.x / 2.0f,
         .y = b.scale.y / 2.0f,
     };
-    Vec2f a_left_bottom = {
+    const Vec2f a_left_bottom = {
         .x = a.center.x - a_scale_half.x,
         .y = a.center.y - a_scale_half.y,
     };
-    Vec2f b_left_bottom = {
+    const Vec2f b_left_bottom = {
         .x = b.center.x - b_scale_half.x,
         .y = b.center.y - b_scale_half.y,
     };
-    Vec2f a_right_top = {
+    const Vec2f a_right_top = {
         .x = a.center.x + a_scale_half.x,
         .y = a.center.y + a_scale_half.y,
     };
-    Vec2f b_right_top = {
+    const Vec2f b_right_top = {
         .x = b.center.x + b_scale_half.x,
         .y = b.center.y + b_scale_half.y,
     };
