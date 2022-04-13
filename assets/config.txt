@@ -8,18 +8,21 @@ CAMERA_INIT             -250.0  -500.0
 CAMERA_OFFSET           0.0     100.0
 CAMERA_LATENCY          125.0   275.0
 
-FRAME_UPDATE_COUNT      5.825
+FRAME_UPDATE_COUNT      10.0
 
-RUN                     0.0775
+RUN                     0.03575
 LEAP                    1.1
+
 FRICTION                0.9675
 DRAG                    0.95
 
-JUMP                    2.8
-GRAVITY                 0.029
-DROP                    5.5
+JUMP                    1.9
+GRAVITY                 0.01
+DROP                    7.0
+
 STICK                   0.785
 GRAB                    0.9
+
 RESET                   -900.0
 
 BOUNCE                  0.5325
