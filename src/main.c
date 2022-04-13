@@ -612,7 +612,7 @@ i32 main(i32 n, const char** args) {
 
         glUniform2f(UNIFORM_CAMERA, CAMERA.x, CAMERA.y);
         glUniform1f(UNIFORM_TIME_SECONDS, (f32)glfwGetTime());
-#if 1
+#if 0
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
 #else
         glBufferSubData(GL_ARRAY_BUFFER,
