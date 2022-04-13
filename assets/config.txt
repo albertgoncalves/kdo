@@ -4,7 +4,7 @@ PATH_SHADER_FRAG        "./src/frag.glsl"
 PLAYER_CENTER_INIT      0.0     500.0
 PLAYER_SCALE            50.0    50.0
 
-CAMERA_INIT             -250.0   -500.0
+CAMERA_INIT             -250.0  -500.0
 CAMERA_OFFSET           0.0     450.0
 CAMERA_LATENCY          125.0   350.0
 
