@@ -392,6 +392,11 @@ static void load_config(const char* path) {
         }
     }
     EXIT_IF(munmap(map.address, map.len));
+    glBufferSubData(GL_ARRAY_BUFFER,
+                    sizeof(RECTS[0]),
+                    (LEN_RECTS - 1) * sizeof(RECTS[0]),
+                    &RECTS[1]);
+    EXIT_IF_GL_ERROR()
 }
 
 static f64 now(void) {
@@ -540,10 +545,6 @@ static Bool intersect(Rect a, Rect b) {
 i32 main(i32 n, const char** args) {
     EXIT_IF(n < 2);
     PATH_CONFIG = args[1];
-    load_config(PATH_CONFIG);
-    PLAYER.center = PLAYER_CENTER_INIT;
-    CAMERA.x      = CAMERA_INIT.x + CAMERA_OFFSET.x;
-    CAMERA.y      = CAMERA_INIT.y + CAMERA_OFFSET.y;
 
     printf("GLFW version : %s\n", glfwGetVersionString());
 
@@ -610,6 +611,11 @@ i32 main(i32 n, const char** args) {
                           (void*)offsetof(Rect, scale));
     glVertexAttribDivisor(INDEX_SCALE, 1);
     EXIT_IF_GL_ERROR();
+
+    load_config(PATH_CONFIG);
+    PLAYER.center = PLAYER_CENTER_INIT;
+    CAMERA.x      = CAMERA_INIT.x + CAMERA_OFFSET.x;
+    CAMERA.y      = CAMERA_INIT.y + CAMERA_OFFSET.y;
 
     EXIT_IF(!compile_program());
     glViewport(0, 0, WINDOW_X, WINDOW_Y);
@@ -703,14 +709,7 @@ i32 main(i32 n, const char** args) {
 
         glUniform2f(UNIFORM_CAMERA, CAMERA.x, CAMERA.y);
         glUniform1f(UNIFORM_TIME_SECONDS, (f32)glfwGetTime());
-#if 0
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
-#else
-        glBufferSubData(GL_ARRAY_BUFFER,
-                        0,
-                        LEN_RECTS * sizeof(RECTS[0]),
-                        RECTS);
-#endif
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawElementsInstanced(GL_TRIANGLES,
                                 6,
