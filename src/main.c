@@ -504,15 +504,16 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
         if (!PLAYER_CAN_JUMP) {
             break;
         }
-        if (PLAYER_COLLIDE_X) {
-            if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-                PLAYER_SPEED.x -= LEAP;
-            }
-            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-                PLAYER_SPEED.x += LEAP;
-            }
-        }
         PLAYER_SPEED.y += JUMP;
+        if (!PLAYER_COLLIDE_X) {
+            break;
+        }
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+            PLAYER_SPEED.x -= LEAP;
+        }
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+            PLAYER_SPEED.x += LEAP;
+        }
         break;
     }
     }
