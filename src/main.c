@@ -59,8 +59,13 @@ typedef struct {
 static char BUFFER[CAP_BUFFER];
 static u32  LEN_BUFFER = 0;
 
-#define WINDOW_X    900
-#define WINDOW_Y    900
+#if 0
+    #define WINDOW_X 1900
+    #define WINDOW_Y 1000
+#else
+    #define WINDOW_X 900
+    #define WINDOW_Y 900
+#endif
 #define WINDOW_NAME "float"
 
 #define PREFIX "  # "
