@@ -1,44 +1,44 @@
 PATH_SHADER_VERT        "./src/vert.glsl"
 PATH_SHADER_FRAG        "./src/frag.glsl"
 
-PLAYER_CENTER_INIT      0.0     500.0
+PLAYER_CENTER_INIT      0       500
 PLAYER_SCALE            27.5    27.5
 
-CAMERA_INIT             -250.0  -500.0
-CAMERA_OFFSET           0.0     100.0
-CAMERA_LATENCY          125.0   275.0
+CAMERA_INIT             -250    -500
+CAMERA_OFFSET           0       100
+CAMERA_LATENCY          125     275
 
-FRAME_UPDATE_COUNT      10.0
+FRAME_UPDATE_COUNT      10
 
 RUN                     0.03575
-LEAP                    2.0
+LEAP                    2
 
 FRICTION                0.9675
 DRAG                    0.95
 
 JUMP                    1.9
 GRAVITY                 0.01
-DROP                    7.0
+DROP                    7
 
 STICK                   0.785
 GRAB                    0.9
 
-RESET                   -900.0
+RESET                   -900
 
 BOUNCE                  0.5325
 
 RECTS {
-    0.0     -30.0       900.0   5.0
-    200.0   175.0       250.0   5.0
-    -650.0  100.0       250.0   5.0
+    0       -30         900     5
+    200     175         250     5
+    -650    100         250     5
 
-    500.0   0.0         5.0     500.0
-    700.0   300.0       5.0     300.0
-    600.0   1000.0      5.0     900.0
+    500     0           5       500
+    700     300         5       300
+    600     1000        5       900
 
-    1000.0  400.0       250.0   5.0
+    1000    400         250     5
 
-    600.0   800.0       5.0     250.0
-    800.0   1200.0      5.0     125.0
-    900.0   900.0       50.0    5.0
+    600     800         5       250
+    800     1200        5       125
+    900     900         50      5
 }

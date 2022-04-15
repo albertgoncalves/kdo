@@ -271,16 +271,17 @@ static f32 parse_f32(const char** buffer) {
         a = (a * 10) + ((f32)(**buffer - '0'));
         ++(*buffer);
     }
-    EXIT_IF(**buffer != '.');
-    ++(*buffer);
-    f32 b = 0.0f;
-    f32 c = 1.0f;
-    while (IS_DIGIT(**buffer)) {
-        b = (b * 10.0f) + ((f32)(**buffer - '0'));
-        c *= 10.0f;
+    if (**buffer == '.') {
         ++(*buffer);
+        f32 b = 0.0f;
+        f32 c = 1.0f;
+        while (IS_DIGIT(**buffer)) {
+            b = (b * 10.0f) + ((f32)(**buffer - '0'));
+            c *= 10.0f;
+            ++(*buffer);
+        }
+        a += b / c;
     }
-    a += b / c;
     if (negate) {
         return -a;
     }
@@ -298,16 +299,17 @@ static f64 parse_f64(const char** buffer) {
         a = (a * 10) + ((f64)(**buffer - '0'));
         ++(*buffer);
     }
-    EXIT_IF(**buffer != '.');
-    ++(*buffer);
-    f64 b = 0.0;
-    f64 c = 1.0;
-    while (IS_DIGIT(**buffer)) {
-        b = (b * 10.0) + ((f64)(**buffer - '0'));
-        c *= 10.0;
+    if (**buffer == '.') {
         ++(*buffer);
+        f64 b = 0.0;
+        f64 c = 1.0;
+        while (IS_DIGIT(**buffer)) {
+            b = (b * 10.0) + ((f64)(**buffer - '0'));
+            c *= 10.0;
+            ++(*buffer);
+        }
+        a += b / c;
     }
-    a += b / c;
     if (negate) {
         return -a;
     }
