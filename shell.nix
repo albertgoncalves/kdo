@@ -3,6 +3,7 @@ mkShell.override { stdenv = llvmPackages_14.stdenv; } {
     buildInputs = [
         glfw3
         libGL
+        linuxPackages.perf
         mold
         renderdoc
         shellcheck

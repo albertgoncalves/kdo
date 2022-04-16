@@ -13,6 +13,7 @@ flags=(
     "-fsanitize=nullability"
     "-fsanitize=undefined"
     -fshort-enums
+    -g
     -lGL
     -lglfw
     "-march=native"
