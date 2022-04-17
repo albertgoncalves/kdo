@@ -12,5 +12,5 @@ void main() {
                               (sin(TIME_SECONDS) + 1.0f) / 2.0f,
                               1.0f),
                          vec4(1.0f),
-                         0.75f);
+                         0.625f);
 }
