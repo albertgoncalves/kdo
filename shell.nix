@@ -1,12 +1,14 @@
 with import <nixpkgs> {};
 mkShell.override { stdenv = llvmPackages_14.stdenv; } {
     buildInputs = [
+        ffmpeg
         glfw3
         libGL
         linuxPackages.perf
         mold
         renderdoc
         shellcheck
+        simplescreenrecorder
     ];
     APPEND_LIBRARY_PATH = lib.makeLibraryPath [
         glfw
