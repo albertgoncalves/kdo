@@ -266,9 +266,9 @@ static f32 parse_f32(const char** buffer) {
         negate = TRUE;
         ++(*buffer);
     }
-    f32 a = 0;
+    f32 a = 0.0f;
     while (IS_DIGIT(**buffer)) {
-        a = (a * 10) + ((f32)(**buffer - '0'));
+        a = (a * 10.0f) + ((f32)(**buffer - '0'));
         ++(*buffer);
     }
     if (**buffer == '.') {
