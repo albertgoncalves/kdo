@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #define GL_GLEXT_PROTOTYPES
@@ -11,11 +12,12 @@
 #include <GLFW/glfw3.h>
 
 typedef uint32_t u32;
+typedef uint64_t u64;
 typedef int32_t  i32;
 typedef float    f32;
-typedef double   f64;
 
-typedef struct stat FileStat;
+typedef struct stat     FileStat;
+typedef struct timespec Time;
 
 typedef struct {
     void* address;
@@ -74,7 +76,9 @@ static u32  LEN_BUFFER = 0;
 #define INDEX_TRANSLATE 1
 #define INDEX_SCALE     2
 
-#define MICROSECONDS 1000000.0
+#define MICRO_PER_SECOND 1000000llu
+#define NANO_PER_SECOND  1000000000llu
+#define NANO_PER_MICRO   (NANO_PER_SECOND / MICRO_PER_SECOND)
 
 static const Vec2f VERTICES[] = {
     {0.5f, 0.5f},
@@ -91,8 +95,8 @@ static const char* PATH_CONFIG;
 static const char* PATH_SHADER_VERT;
 static const char* PATH_SHADER_FRAG;
 
-static f64 FRAME_UPDATE_COUNT;
-#define FRAME_DURATION    ((1.0 / 60.0) * MICROSECONDS)
+static u64 FRAME_UPDATE_COUNT;
+#define FRAME_DURATION    ((u64)((1.0 / 60.0) * NANO_PER_SECOND))
 #define FRAME_UPDATE_STEP (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
 static Vec2f CAMERA_INIT;
@@ -288,32 +292,21 @@ static f32 parse_f32(const char** buffer) {
     return a;
 }
 
-static f64 parse_f64(const char** buffer) {
+static u64 parse_u64(const char** buffer) {
     Bool negate = FALSE;
     if (**buffer == '-') {
         negate = TRUE;
         ++(*buffer);
     }
-    f64 a = 0;
+    u64 x = 0;
     while (IS_DIGIT(**buffer)) {
-        a = (a * 10) + ((f64)(**buffer - '0'));
+        x = (x * 10) + ((u64)(**buffer - '0'));
         ++(*buffer);
-    }
-    if (**buffer == '.') {
-        ++(*buffer);
-        f64 b = 0.0;
-        f64 c = 1.0;
-        while (IS_DIGIT(**buffer)) {
-            b = (b * 10.0) + ((f64)(**buffer - '0'));
-            c *= 10.0;
-            ++(*buffer);
-        }
-        a += b / c;
     }
     if (negate) {
-        return -a;
+        return -x;
     }
-    return a;
+    return x;
 }
 
 static Vec2f parse_vec2f(const char** buffer) {
@@ -350,7 +343,7 @@ static void load_config(const char* path) {
         } else if (eq(key, STRING("PATH_SHADER_FRAG"))) {
             PATH_SHADER_FRAG = string_to_buffer(parse_string(&config));
         } else if (eq(key, STRING("FRAME_UPDATE_COUNT"))) {
-            FRAME_UPDATE_COUNT = parse_f64(&config);
+            FRAME_UPDATE_COUNT = parse_u64(&config);
         } else if (eq(key, STRING("CAMERA_INIT"))) {
             CAMERA_INIT = parse_vec2f(&config);
         } else if (eq(key, STRING("CAMERA_OFFSET"))) {
@@ -406,8 +399,10 @@ static void load_config(const char* path) {
     EXIT_IF_GL_ERROR()
 }
 
-static f64 now(void) {
-    return glfwGetTime() * MICROSECONDS;
+static u64 now(void) {
+    Time time;
+    EXIT_IF(clock_gettime(CLOCK_MONOTONIC, &time));
+    return ((u64)time.tv_sec * 1000000000llu) + (u64)time.tv_nsec;
 }
 
 ATTRIBUTE(noreturn) static void callback_error(i32 code, const char* error) {
@@ -628,10 +623,10 @@ i32 main(i32 n, const char** args) {
     EXIT_IF(!compile_program());
     glViewport(0, 0, WINDOW_X, WINDOW_Y);
 
-    f64 prev  = now();
-    f64 delta = 0.0;
+    u64 prev  = now();
+    u64 delta = 0;
     while (!glfwWindowShouldClose(window)) {
-        const f64 start = now();
+        const u64 start = now();
         delta += start - prev;
         while (FRAME_UPDATE_STEP < delta) {
             glfwPollEvents();
@@ -716,7 +711,10 @@ i32 main(i32 n, const char** args) {
         prev = start;
 
         glUniform2f(UNIFORM_CAMERA, CAMERA.x, CAMERA.y);
-        glUniform1f(UNIFORM_TIME_SECONDS, (f32)glfwGetTime());
+        // NOTE: See `http://the-witness.net/news/2022/02/a-shader-trick/`.
+        glUniform1f(UNIFORM_TIME_SECONDS,
+                    ((f32)(now() % (NANO_PER_SECOND * 10llu))) /
+                        ((f32)NANO_PER_SECOND));
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawElementsInstanced(GL_TRIANGLES,
@@ -727,9 +725,9 @@ i32 main(i32 n, const char** args) {
         EXIT_IF_GL_ERROR()
         glfwSwapBuffers(window);
 
-        const f64 elapsed = now() - start;
+        const u64 elapsed = now() - start;
         if (elapsed < FRAME_DURATION) {
-            usleep((u32)(FRAME_DURATION - elapsed));
+            usleep((u32)((FRAME_DURATION - elapsed) / NANO_PER_MICRO));
         }
     }
     glDeleteVertexArrays(1, &vao);

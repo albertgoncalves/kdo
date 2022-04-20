@@ -4,6 +4,7 @@ set -euo pipefail
 
 flags=(
     -D_DEFAULT_SOURCE
+    -D_POSIX_C_SOURCE
     "-ferror-limit=1"
     "-fsanitize=address"
     "-fsanitize=bounds"

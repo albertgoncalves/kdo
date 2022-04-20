@@ -7,10 +7,14 @@ layout(location = 0) out vec4 FRAG_OUT_COLOR;
 uniform vec2  WINDOW;
 uniform float TIME_SECONDS;
 
+#define PI 3.14159274f
+
 void main() {
-    FRAG_OUT_COLOR = mix(vec4(gl_FragCoord.xy / WINDOW,
-                              (sin(TIME_SECONDS) + 1.0f) / 2.0f,
-                              1.0f),
-                         vec4(1.0f),
-                         0.625f);
+    // NOTE: See `http://the-witness.net/news/2022/02/a-shader-trick/`.
+    FRAG_OUT_COLOR =
+        mix(vec4(gl_FragCoord.xy / WINDOW,
+                 (sin(0.1f * TIME_SECONDS * 2.0f * PI) + 1.0f) / 2.0f,
+                 1.0f),
+            vec4(1.0f),
+            0.625f);
 }
