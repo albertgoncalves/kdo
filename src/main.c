@@ -727,7 +727,8 @@ i32 main(i32 n, const char** args) {
 
         const u64 elapsed = now() - start;
         if (elapsed < FRAME_DURATION) {
-            usleep((u32)((FRAME_DURATION - elapsed) / NANO_PER_MICRO));
+            EXIT_IF(
+                usleep((u32)((FRAME_DURATION - elapsed) / NANO_PER_MICRO)));
         }
     }
     glDeleteVertexArrays(1, &vao);
