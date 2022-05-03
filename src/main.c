@@ -72,6 +72,10 @@ static u32  LEN_BUFFER = 0;
 
 #define PREFIX "  # "
 
+#define BACKGROUND_COLOR 0.125f, 0.125f, 0.125f, 1.0f
+#define BACKGROUND_COLOR_PAUSED \
+    (1.0f - 0.125f), (1.0f - 0.125f), (1.0f - 0.125f), 1.0f
+
 #define INDEX_VERTEX    0
 #define INDEX_TRANSLATE 1
 #define INDEX_SCALE     2
@@ -130,10 +134,13 @@ static Bool  PLAYER_COLLIDE_X;
 static Bool  PLAYER_COLLIDE_Y;
 static Bool  PLAYER_CAN_JUMP;
 
+static Bool PAUSED = FALSE;
+
 static u32 PROGRAM;
 static i32 UNIFORM_CAMERA;
 static i32 UNIFORM_WINDOW;
 static i32 UNIFORM_TIME_SECONDS;
+static i32 UNIFORM_PAUSED;
 
 #define EXIT()                                              \
     {                                                       \
@@ -471,7 +478,9 @@ static i32 compile_program(void) {
     UNIFORM_CAMERA       = glGetUniformLocation(PROGRAM, "CAMERA");
     UNIFORM_WINDOW       = glGetUniformLocation(PROGRAM, "WINDOW");
     UNIFORM_TIME_SECONDS = glGetUniformLocation(PROGRAM, "TIME_SECONDS");
+    UNIFORM_PAUSED       = glGetUniformLocation(PROGRAM, "PAUSED");
     glUniform2f(UNIFORM_WINDOW, WINDOW_X, WINDOW_Y);
+    glUniform1ui(UNIFORM_PAUSED, PAUSED);
     EXIT_IF_GL_ERROR();
     return status;
 }
@@ -508,6 +517,16 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
             PLAYER_SPEED.x += LEAP;
+        }
+        break;
+    }
+    case GLFW_KEY_E: {
+        PAUSED = !PAUSED;
+        glUniform1ui(UNIFORM_PAUSED, PAUSED);
+        if (PAUSED) {
+            glClearColor(BACKGROUND_COLOR_PAUSED);
+        } else {
+            glClearColor(BACKGROUND_COLOR);
         }
         break;
     }
@@ -567,8 +586,7 @@ i32 main(i32 n, const char** args) {
     glfwSetKeyCallback(window, callback_key);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
-
-    glClearColor(0.125f, 0.125f, 0.125f, 1.0f);
+    glClearColor(BACKGROUND_COLOR);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     EXIT_IF_GL_ERROR()
@@ -627,9 +645,17 @@ i32 main(i32 n, const char** args) {
     u64 delta = 0;
     while (!glfwWindowShouldClose(window)) {
         const u64 start = now();
-        delta += start - prev;
-        while (FRAME_UPDATE_STEP < delta) {
+        for (delta += start - prev; FRAME_UPDATE_STEP < delta;
+             delta -= FRAME_UPDATE_STEP)
+        {
             glfwPollEvents();
+            CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
+                        CAMERA_LATENCY.x;
+            CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /
+                        CAMERA_LATENCY.y;
+            if (PAUSED) {
+                continue;
+            }
             if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
                 PLAYER_SPEED.x += RUN;
             }
@@ -702,11 +728,6 @@ i32 main(i32 n, const char** args) {
                 PLAYER_SPEED  = (Vec2f){0};
             }
             PLAYER_CAN_JUMP = PLAYER_COLLIDE_X || PLAYER_COLLIDE_Y;
-            CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
-                        CAMERA_LATENCY.x;
-            CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /
-                        CAMERA_LATENCY.y;
-            delta -= FRAME_UPDATE_STEP;
         }
         prev = start;
 
