@@ -438,12 +438,12 @@ static i32 compile_shader(const char* path, u32 shader) {
     return status;
 }
 
-#define BIND_BUFFER(object, array, target)                          \
-    {                                                               \
-        glGenBuffers(1, &object);                                   \
-        glBindBuffer(target, object);                               \
-        glBufferData(target, sizeof(array), array, GL_STATIC_DRAW); \
-        EXIT_IF_GL_ERROR();                                         \
+#define BIND_BUFFER(object, array, target, usage)          \
+    {                                                      \
+        glGenBuffers(1, &object);                          \
+        glBindBuffer(target, object);                      \
+        glBufferData(target, sizeof(array), array, usage); \
+        EXIT_IF_GL_ERROR();                                \
     }
 
 static i32 compile_program(void) {
@@ -600,10 +600,10 @@ i32 main(i32 n, const char** args) {
     EXIT_IF_GL_ERROR();
 
     u32 vbo;
-    BIND_BUFFER(vbo, VERTICES, GL_ARRAY_BUFFER);
+    BIND_BUFFER(vbo, VERTICES, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
 
     u32 ebo;
-    BIND_BUFFER(ebo, INDICES, GL_ELEMENT_ARRAY_BUFFER);
+    BIND_BUFFER(ebo, INDICES, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
     glEnableVertexAttribArray(INDEX_VERTEX);
     glVertexAttribPointer(INDEX_VERTEX,
                           2,
@@ -614,7 +614,7 @@ i32 main(i32 n, const char** args) {
     EXIT_IF_GL_ERROR();
 
     u32 instance_vbo;
-    BIND_BUFFER(instance_vbo, RECTS, GL_ARRAY_BUFFER);
+    BIND_BUFFER(instance_vbo, RECTS, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(INDEX_TRANSLATE);
     glVertexAttribPointer(INDEX_TRANSLATE,
