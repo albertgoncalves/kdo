@@ -103,7 +103,7 @@ static const char* PATH_SHADER_VERT;
 static const char* PATH_SHADER_FRAG;
 
 static u64 FRAME_UPDATE_COUNT;
-#define FRAME_DURATION    ((u64)((1.0 / 60.0) * NANO_PER_SECOND))
+#define FRAME_DURATION    ((u64)((1.0 / (60.0 + 1.0)) * NANO_PER_SECOND))
 #define FRAME_UPDATE_STEP (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
 static Vec2f CAMERA_INIT;
