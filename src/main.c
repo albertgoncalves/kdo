@@ -11,6 +11,7 @@
 
 #include <GLFW/glfw3.h>
 
+typedef uint8_t  u8;
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int32_t  i32;
@@ -39,7 +40,7 @@ typedef struct {
 } Vec2f;
 
 typedef struct {
-    u32 x, y, z;
+    u8 x, y, z;
 } Vec3u;
 
 typedef struct {
@@ -90,6 +91,8 @@ static const Vec2f VERTICES[] = {
     {-0.5f, -0.5f},
     {-0.5f, 0.5f},
 };
+
+// NOTE: See `https://docs.nvidia.com/drive/drive_os_5.1.6.1L/nvvib_docs/DRIVE_OS_Linux_SDK_Development_Guide/Graphics/graphics_opengl.html`.
 static const Vec3u INDICES[] = {
     {0, 1, 3},
     {1, 2, 3},
@@ -740,7 +743,7 @@ i32 main(i32 n, const char** args) {
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawElementsInstanced(GL_TRIANGLES,
                                 6,
-                                GL_UNSIGNED_INT,
+                                GL_UNSIGNED_BYTE,
                                 INDEX_VERTEX,
                                 (i32)LEN_RECTS);
         EXIT_IF_GL_ERROR()
