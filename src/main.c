@@ -16,6 +16,7 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int32_t  i32;
 typedef float    f32;
+typedef double   f64;
 
 typedef struct stat     FileStat;
 typedef struct timespec Time;
@@ -71,7 +72,7 @@ static u32  LEN_BUFFER = 0;
 #endif
 #define WINDOW_NAME "float"
 
-#define PREFIX "  # "
+#define PREFIX "\033[3A\n\n  # "
 
 #define BACKGROUND_COLOR 0.125f, 0.125f, 0.125f, 1.0f
 #define BACKGROUND_COLOR_PAUSED \
@@ -81,8 +82,10 @@ static u32  LEN_BUFFER = 0;
 #define INDEX_TRANSLATE 1
 #define INDEX_SCALE     2
 
+#define MILLI_PER_SECOND 1000llu
 #define MICRO_PER_SECOND 1000000llu
 #define NANO_PER_SECOND  1000000000llu
+#define NANO_PER_MILLI   (NANO_PER_SECOND / MILLI_PER_SECOND)
 #define NANO_PER_MICRO   (NANO_PER_SECOND / MICRO_PER_SECOND)
 
 static const Vec2f VERTICES[] = {
@@ -644,14 +647,29 @@ i32 main(i32 n, const char** args) {
     EXIT_IF(!compile_program());
     glViewport(0, 0, WINDOW_X, WINDOW_Y);
 
-    u64 prev  = now();
-    u64 delta = 0;
+    u64 prev     = now();
+    u64 delta    = 0;
+    u64 interval = now();
+    u64 frames   = 0;
+    printf("\n\n\n");
     while (!glfwWindowShouldClose(window)) {
         const u64 start = now();
+        ++frames;
+        if (NANO_PER_SECOND <= (start - interval)) {
+            printf("\033[3A"
+                   "%7.4f ms/f\n"
+                   "%7lu f/s\n"
+                   "                                \n",
+                   (NANO_PER_SECOND / (f64)frames) / NANO_PER_MILLI,
+                   frames);
+            interval += NANO_PER_SECOND;
+            frames = 0;
+        }
         for (delta += start - prev; FRAME_UPDATE_STEP < delta;
              delta -= FRAME_UPDATE_STEP)
         {
             glfwPollEvents();
+
             CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
                         CAMERA_LATENCY.x;
             CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /
