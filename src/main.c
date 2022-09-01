@@ -688,6 +688,8 @@ i32 main(i32 n, const char** args) {
             } else {
                 PLAYER_SPEED.y -= GRAVITY;
             }
+
+            // NOTE: See `https://www.gamedev.net/articles/programming/general-and-gameplay-programming/swept-aabb-collision-detection-and-response-r3084/`.
             Rect left_right = {
                 .center = {.y = PLAYER.center.y},
                 .scale  = {.y = PLAYER.scale.y},
@@ -728,6 +730,7 @@ i32 main(i32 n, const char** args) {
                     PLAYER_COLLIDE_Y = TRUE;
                 }
             }
+
             if (PLAYER_COLLIDE_X) {
                 PLAYER_SPEED.x = -PLAYER_SPEED.x * BOUNCE;
                 PLAYER_SPEED.y *= GRAB;
