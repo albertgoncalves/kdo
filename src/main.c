@@ -83,10 +83,8 @@ static u32  LEN_BUFFER = 0;
 #define INDEX_SCALE     2
 
 #define MILLI_PER_SECOND 1000llu
-#define MICRO_PER_SECOND 1000000llu
 #define NANO_PER_SECOND  1000000000llu
 #define NANO_PER_MILLI   (NANO_PER_SECOND / MILLI_PER_SECOND)
-#define NANO_PER_MICRO   (NANO_PER_SECOND / MICRO_PER_SECOND)
 
 static const Vec2f VERTICES[] = {
     {0.5f, 0.5f},
@@ -106,7 +104,7 @@ static const char* PATH_SHADER_VERT;
 static const char* PATH_SHADER_FRAG;
 
 static u64 FRAME_UPDATE_COUNT;
-#define FRAME_DURATION    ((u64)((1.0 / (60.0 + 1.0)) * NANO_PER_SECOND))
+#define FRAME_DURATION    ((u64)((1.0 / 60.0) * NANO_PER_SECOND))
 #define FRAME_UPDATE_STEP (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
 static Vec2f CAMERA_INIT;
@@ -136,9 +134,8 @@ static u32  LEN_RECTS = 0;
 
 static Vec2f PLAYER_CENTER_INIT;
 static Vec2f PLAYER_SPEED = {0};
-static Bool  PLAYER_COLLIDE_X;
-static Bool  PLAYER_COLLIDE_Y;
 static Bool  PLAYER_CAN_JUMP;
+static Bool  PLAYER_CAN_LEAP;
 
 static Bool PAUSED = FALSE;
 
@@ -185,6 +182,9 @@ static i32 UNIFORM_PAUSED;
         }                                                  \
         case GL_NO_ERROR: {                                \
             break;                                         \
+        }                                                  \
+        default: {                                         \
+            EXIT();                                        \
         }                                                  \
         }                                                  \
     }
@@ -418,6 +418,17 @@ static u64 now(void) {
     return ((u64)time.tv_sec * 1000000000llu) + (u64)time.tv_nsec;
 }
 
+static f32 lerp_f32(f32 l, f32 r, f32 t) {
+    return l + (t * (r - l));
+}
+
+static Vec2f lerp_vec2f(Vec2f l, Vec2f r, f32 t) {
+    return (Vec2f){
+        .x = lerp_f32(l.x, r.x, t),
+        .y = lerp_f32(l.y, r.y, t),
+    };
+}
+
 ATTRIBUTE(noreturn) static void callback_error(i32 code, const char* error) {
     printf("%d: %s\n", code, error);
     _exit(ERROR);
@@ -510,22 +521,6 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
         }
         break;
     }
-    case GLFW_KEY_W: {
-        if (!PLAYER_CAN_JUMP) {
-            break;
-        }
-        PLAYER_SPEED.y += JUMP;
-        if (!PLAYER_COLLIDE_X) {
-            break;
-        }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            PLAYER_SPEED.x -= LEAP;
-        }
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            PLAYER_SPEED.x += LEAP;
-        }
-        break;
-    }
     case GLFW_KEY_E: {
         PAUSED = !PAUSED;
         glUniform1ui(UNIFORM_PAUSED, PAUSED);
@@ -535,6 +530,8 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
             glClearColor(BACKGROUND_COLOR);
         }
         break;
+    }
+    default: {
     }
     }
 }
@@ -568,6 +565,137 @@ static Bool intersect(Rect a, Rect b) {
             (b_left_bottom.x < a_right_top.x) &&
             (a_left_bottom.y < b_right_top.y) &&
             (b_left_bottom.y < a_right_top.y));
+}
+
+static void step(GLFWwindow* window, f32 t) {
+    EXIT_IF(1.0f < t);
+
+    {
+        const Vec2f prev = CAMERA;
+        CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
+                    CAMERA_LATENCY.x;
+        CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /
+                    CAMERA_LATENCY.y;
+        CAMERA = lerp_vec2f(prev, CAMERA, t);
+    }
+
+    if (PAUSED) {
+        return;
+    }
+
+    {
+        const Vec2f prev = PLAYER_SPEED;
+
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+            PLAYER_SPEED.x += RUN;
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+            PLAYER_SPEED.x -= RUN;
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+            PLAYER_SPEED.y -= GRAVITY * DROP;
+        } else {
+            PLAYER_SPEED.y -= GRAVITY;
+        }
+
+        PLAYER_SPEED = lerp_vec2f(prev, PLAYER_SPEED, t);
+    }
+
+    if (PLAYER_CAN_JUMP) {
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+            PLAYER_SPEED.y += JUMP;
+            PLAYER_CAN_JUMP = FALSE;
+
+            if (PLAYER_CAN_LEAP) {
+                if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+                    PLAYER_SPEED.x -= LEAP;
+                }
+                if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+                    PLAYER_SPEED.x += LEAP;
+                }
+                PLAYER_CAN_LEAP = FALSE;
+            }
+        }
+    }
+
+    // NOTE: See `https://www.gamedev.net/articles/programming/general-and-gameplay-programming/swept-aabb-collision-detection-and-response-r3084/`.
+    Rect left_right = {
+        .center = {.y = PLAYER.center.y},
+        .scale  = {.y = PLAYER.scale.y},
+    };
+    if (PLAYER_SPEED.x < 0.0f) {
+        left_right.center.x =
+            PLAYER.center.x + ((-PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
+        left_right.scale.x = -PLAYER_SPEED.x;
+    } else {
+        left_right.center.x =
+            PLAYER.center.x + ((PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
+        left_right.scale.x = PLAYER_SPEED.x;
+    }
+    Rect bottom_top = {
+        .center = {.x = PLAYER.center.x},
+        .scale  = {.x = PLAYER.scale.x},
+    };
+    if (PLAYER_SPEED.y < 0.0f) {
+        bottom_top.center.y =
+            PLAYER.center.y + ((-PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
+        bottom_top.scale.y = -PLAYER_SPEED.y;
+    } else {
+        bottom_top.center.y =
+            PLAYER.center.y + ((PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
+        bottom_top.scale.y = PLAYER_SPEED.y;
+    }
+
+    Bool collide_x = FALSE;
+    Bool collide_y = FALSE;
+
+    for (u32 i = 1; i < LEN_RECTS; ++i) {
+        collide_x |= intersect(left_right, RECTS[i]);
+        collide_y |= intersect(bottom_top, RECTS[i]);
+        if (collide_x && collide_y) {
+            break;
+        }
+    }
+
+    {
+        const Vec2f prev = PLAYER_SPEED;
+
+        if (collide_x) {
+            PLAYER_SPEED.x = -PLAYER_SPEED.x * BOUNCE;
+            PLAYER_SPEED.y *= GRAB;
+        }
+
+        if (collide_y) {
+            PLAYER_SPEED.x *= FRICTION;
+            PLAYER_SPEED.y = -PLAYER_SPEED.y * BOUNCE;
+        } else {
+            PLAYER_SPEED.x *= DRAG;
+        }
+
+        PLAYER_SPEED = lerp_vec2f(prev, PLAYER_SPEED, t);
+    }
+
+    if (!collide_x) {
+        PLAYER.center.x += PLAYER_SPEED.x;
+    }
+
+    if (collide_y) {
+        if (PLAYER_SPEED.y < STICK) {
+            PLAYER_SPEED.y = 0.0f;
+        }
+    } else {
+        PLAYER.center.y += PLAYER_SPEED.y;
+    }
+
+    if (PLAYER.center.y < RESET) {
+        PLAYER.center = PLAYER_CENTER_INIT;
+        PLAYER_SPEED  = (Vec2f){0};
+    }
+
+    PLAYER_CAN_JUMP = (collide_x || collide_y) && (PLAYER_SPEED.y <= 0.0f);
+    PLAYER_CAN_LEAP = (!collide_y) && collide_x;
 }
 
 i32 main(i32 n, const char** args) {
@@ -648,7 +776,6 @@ i32 main(i32 n, const char** args) {
     glViewport(0, 0, WINDOW_X, WINDOW_Y);
 
     u64 prev     = now();
-    u64 delta    = 0;
     u64 interval = now();
     u64 frames   = 0;
     printf("\n\n\n");
@@ -665,94 +792,15 @@ i32 main(i32 n, const char** args) {
             interval += NANO_PER_SECOND;
             frames = 0;
         }
-        for (delta += start - prev; FRAME_UPDATE_STEP < delta;
-             delta -= FRAME_UPDATE_STEP)
-        {
-            glfwPollEvents();
 
-            CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
-                        CAMERA_LATENCY.x;
-            CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /
-                        CAMERA_LATENCY.y;
-            if (PAUSED) {
-                continue;
-            }
-            if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-                PLAYER_SPEED.x += RUN;
-            }
-            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-                PLAYER_SPEED.x -= RUN;
-            }
-            if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-                PLAYER_SPEED.y -= GRAVITY * DROP;
-            } else {
-                PLAYER_SPEED.y -= GRAVITY;
-            }
+        glfwPollEvents();
 
-            // NOTE: See `https://www.gamedev.net/articles/programming/general-and-gameplay-programming/swept-aabb-collision-detection-and-response-r3084/`.
-            Rect left_right = {
-                .center = {.y = PLAYER.center.y},
-                .scale  = {.y = PLAYER.scale.y},
-            };
-            if (PLAYER_SPEED.x < 0.0f) {
-                left_right.center.x =
-                    PLAYER.center.x +
-                    ((-PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
-                left_right.scale.x = -PLAYER_SPEED.x;
-            } else {
-                left_right.center.x =
-                    PLAYER.center.x +
-                    ((PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
-                left_right.scale.x = PLAYER_SPEED.x;
-            }
-            Rect bottom_top = {
-                .center = {.x = PLAYER.center.x},
-                .scale  = {.x = PLAYER.scale.x},
-            };
-            if (PLAYER_SPEED.y < 0.0f) {
-                bottom_top.center.y =
-                    PLAYER.center.y +
-                    ((-PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
-                bottom_top.scale.y = -PLAYER_SPEED.y;
-            } else {
-                bottom_top.center.y =
-                    PLAYER.center.y +
-                    ((PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
-                bottom_top.scale.y = PLAYER_SPEED.y;
-            }
-            PLAYER_COLLIDE_X = FALSE;
-            PLAYER_COLLIDE_Y = FALSE;
-            for (u32 i = 1; i < LEN_RECTS; ++i) {
-                if (intersect(left_right, RECTS[i])) {
-                    PLAYER_COLLIDE_X = TRUE;
-                }
-                if (intersect(bottom_top, RECTS[i])) {
-                    PLAYER_COLLIDE_Y = TRUE;
-                }
-            }
-
-            if (PLAYER_COLLIDE_X) {
-                PLAYER_SPEED.x = -PLAYER_SPEED.x * BOUNCE;
-                PLAYER_SPEED.y *= GRAB;
-            } else {
-                PLAYER.center.x += PLAYER_SPEED.x;
-            }
-            if (PLAYER_COLLIDE_Y) {
-                PLAYER_SPEED.x *= FRICTION;
-                PLAYER_SPEED.y = -PLAYER_SPEED.y * BOUNCE;
-                if (PLAYER_SPEED.y < STICK) {
-                    PLAYER_SPEED.y = 0.0f;
-                }
-            } else {
-                PLAYER_SPEED.x *= DRAG;
-                PLAYER.center.y += PLAYER_SPEED.y;
-            }
-            if (PLAYER.center.y < RESET) {
-                PLAYER.center = PLAYER_CENTER_INIT;
-                PLAYER_SPEED  = (Vec2f){0};
-            }
-            PLAYER_CAN_JUMP = PLAYER_COLLIDE_X || PLAYER_COLLIDE_Y;
+        u64 delta = start - prev;
+        for (; FRAME_UPDATE_STEP < delta; delta -= FRAME_UPDATE_STEP) {
+            step(window, 1.0f);
         }
+        step(window, ((f32)delta) / FRAME_UPDATE_STEP);
+
         prev = start;
 
         glUniform2f(UNIFORM_CAMERA, CAMERA.x, CAMERA.y);
@@ -769,12 +817,6 @@ i32 main(i32 n, const char** args) {
                                 (i32)LEN_RECTS);
         EXIT_IF_GL_ERROR()
         glfwSwapBuffers(window);
-
-        const u64 elapsed = now() - start;
-        if (elapsed < FRAME_DURATION) {
-            EXIT_IF(
-                usleep((u32)((FRAME_DURATION - elapsed) / NANO_PER_MICRO)));
-        }
     }
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
