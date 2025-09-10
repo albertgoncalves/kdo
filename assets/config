@@ -6,9 +6,9 @@ PLAYER_SCALE            27.5    27.5
 
 CAMERA_INIT             -250    -500
 CAMERA_OFFSET           0       100
-CAMERA_LATENCY          125     275
+CAMERA_LATENCY          400     200
 
-FRAME_UPDATE_COUNT      10
+FRAME_UPDATE_COUNT      9
 
 RUN                     0.03575
 LEAP                    2
