@@ -18,7 +18,7 @@ flags=(
     -lGL
     -lglfw
     "-march=native"
-    -O1
+    -O3
     "-std=c99"
     -Werror
     -Weverything
@@ -26,7 +26,8 @@ flags=(
     -Wno-declaration-after-statement
     -Wno-extra-semi-stmt
     -Wno-padded
+    -Wno-unsafe-buffer-usage
 )
 clang-format -i -verbose "$WD/src/"*
 mold -run clang "${flags[@]}" -o "$WD/bin/main" "$WD/src/main.c"
-"$WD/bin/main" "$WD/assets/config"
+prime-run "$WD/bin/main" "$WD/assets/config"
