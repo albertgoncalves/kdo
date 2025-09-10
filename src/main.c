@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -47,11 +48,6 @@ typedef struct {
 typedef struct {
     Vec2f center, scale;
 } Rect;
-
-#define OK    0
-#define ERROR 1
-
-#define ATTRIBUTE(x) __attribute__((x))
 
 #define STRING(literal)      \
     ((String){               \
@@ -140,48 +136,31 @@ static i32 UNIFORM_WINDOW;
 static i32 UNIFORM_TIME_SECONDS;
 static i32 UNIFORM_PAUSED;
 
-#define EXIT()                                              \
-    {                                                       \
-        printf("%s:%s:%d\n", __FILE__, __func__, __LINE__); \
-        _exit(ERROR);                                       \
-    }
-
-#define EXIT_WITH(x)                                                \
-    {                                                               \
-        printf("%s:%s:%d `%s`\n", __FILE__, __func__, __LINE__, x); \
-        _exit(ERROR);                                               \
-    }
-
-#define EXIT_IF(condition)    \
-    if (condition) {          \
-        EXIT_WITH(#condition) \
-    }
-
-#define EXIT_IF_GL_ERROR()                                 \
-    {                                                      \
-        switch (glGetError()) {                            \
-        case GL_INVALID_ENUM: {                            \
-            EXIT_WITH("GL_INVALID_ENUM");                  \
-        }                                                  \
-        case GL_INVALID_VALUE: {                           \
-            EXIT_WITH("GL_INVALID_VALUE");                 \
-        }                                                  \
-        case GL_INVALID_OPERATION: {                       \
-            EXIT_WITH("GL_INVALID_OPERATION");             \
-        }                                                  \
-        case GL_INVALID_FRAMEBUFFER_OPERATION: {           \
-            EXIT_WITH("GL_INVALID_FRAMEBUFFER_OPERATION"); \
-        }                                                  \
-        case GL_OUT_OF_MEMORY: {                           \
-            EXIT_WITH("GL_OUT_OF_MEMORY");                 \
-        }                                                  \
-        case GL_NO_ERROR: {                                \
-            break;                                         \
-        }                                                  \
-        default: {                                         \
-            EXIT();                                        \
-        }                                                  \
-        }                                                  \
+#define EXIT_IF_GL_ERROR()                                   \
+    {                                                        \
+        switch (glGetError()) {                              \
+        case GL_INVALID_ENUM: {                              \
+            assert(0 && "GL_INVALID_ENUM");                  \
+        }                                                    \
+        case GL_INVALID_VALUE: {                             \
+            assert(0 && "GL_INVALID_VALUE");                 \
+        }                                                    \
+        case GL_INVALID_OPERATION: {                         \
+            assert(0 && "GL_INVALID_OPERATION");             \
+        }                                                    \
+        case GL_INVALID_FRAMEBUFFER_OPERATION: {             \
+            assert(0 && "GL_INVALID_FRAMEBUFFER_OPERATION"); \
+        }                                                    \
+        case GL_OUT_OF_MEMORY: {                             \
+            assert(0 && "GL_OUT_OF_MEMORY");                 \
+        }                                                    \
+        case GL_NO_ERROR: {                                  \
+            break;                                           \
+        }                                                    \
+        default: {                                           \
+            assert(0);                                       \
+        }                                                    \
+        }                                                    \
     }
 
 #define IS_DIGIT(x) (('0' <= (x)) && ((x) <= '9'))
@@ -193,7 +172,7 @@ static Bool eq(String a, String b) {
 }
 
 static const char* string_to_buffer(String string) {
-    EXIT_IF(CAP_BUFFER <= (LEN_BUFFER + string.len + 1));
+    assert((LEN_BUFFER + string.len + 1) < CAP_BUFFER);
     char* copy = &BUFFER[LEN_BUFFER];
     memcpy(copy, string.buffer, string.len);
     LEN_BUFFER += string.len;
@@ -202,17 +181,17 @@ static const char* string_to_buffer(String string) {
 }
 
 static MemMap path_to_map(const char* path) {
-    EXIT_IF(!path);
+    assert(path);
     const i32 file = open(path, O_RDONLY);
-    EXIT_IF(file < 0);
+    assert(0 <= file);
     FileStat stat;
-    EXIT_IF(fstat(file, &stat) < 0)
+    assert(0 <= fstat(file, &stat));
     const MemMap map = {
         .address =
             mmap(NULL, (u32)stat.st_size, PROT_READ, MAP_SHARED, file, 0),
         .len = (u32)stat.st_size,
     };
-    EXIT_IF(map.address == MAP_FAILED);
+    assert(map.address != MAP_FAILED);
     close(file);
     return map;
 }
@@ -249,7 +228,7 @@ static String parse_key(const char** buffer) {
         .buffer = *buffer,
     };
     while (!IS_SPACE(**buffer)) {
-        EXIT_IF(**buffer == '\0');
+        assert(**buffer != '\0');
         ++(*buffer);
     }
     string.len = (u32)(*buffer - string.buffer);
@@ -258,13 +237,13 @@ static String parse_key(const char** buffer) {
 }
 
 static String parse_string(const char** buffer) {
-    EXIT_IF(**buffer != '"');
+    assert(**buffer == '"');
     ++(*buffer);
     String string = {
         .buffer = *buffer,
     };
     while (**buffer != '"') {
-        EXIT_IF(**buffer == '\0');
+        assert(**buffer != '\0');
         ++(*buffer);
     }
     string.len = (u32)(*buffer - string.buffer);
@@ -385,21 +364,21 @@ static void load_config(const char* path) {
         } else if (eq(key, STRING("PLAYER_SCALE"))) {
             RECTS[0].scale = parse_vec2f(&config);
         } else if (eq(key, STRING("RECTS"))) {
-            EXIT_IF(*config != '{');
+            assert(*config == '{');
             ++config;
             skip_spaces(&config);
             while (*config != '}') {
-                EXIT_IF(CAP_RECTS <= LEN_RECTS);
+                assert(LEN_RECTS < CAP_RECTS);
                 RECTS[LEN_RECTS++] = parse_rect(&config);
                 skip_spaces(&config);
             }
             ++config;
         } else {
             printf(PREFIX "unexpected key: `%.*s`\n", key.len, key.buffer);
-            EXIT();
+            assert(0);
         }
     }
-    EXIT_IF(munmap(map.address, map.len));
+    assert(!munmap(map.address, map.len));
     glBufferSubData(GL_ARRAY_BUFFER,
                     sizeof(RECTS[0]),
                     (LEN_RECTS - 1) * sizeof(RECTS[0]),
@@ -409,7 +388,7 @@ static void load_config(const char* path) {
 
 static u64 now(void) {
     Time time;
-    EXIT_IF(clock_gettime(CLOCK_MONOTONIC, &time));
+    assert(!clock_gettime(CLOCK_MONOTONIC, &time));
     return ((u64)time.tv_sec * 1000000000llu) + (u64)time.tv_nsec;
 }
 
@@ -424,9 +403,10 @@ static Vec2f lerp_vec2f(Vec2f l, Vec2f r, f32 t) {
     };
 }
 
-ATTRIBUTE(noreturn) static void callback_error(i32 code, const char* error) {
+__attribute__((noreturn)) static void callback_error(i32         code,
+                                                     const char* error) {
     printf("%d: %s\n", code, error);
-    _exit(ERROR);
+    assert(0);
 }
 
 static i32 compile_shader(const char* path, u32 shader) {
@@ -443,7 +423,7 @@ static i32 compile_shader(const char* path, u32 shader) {
                            &BUFFER[LEN_BUFFER]);
         printf("%s", &BUFFER[LEN_BUFFER]);
     }
-    EXIT_IF(munmap(map.address, map.len));
+    assert(!munmap(map.address, map.len));
     return status;
 }
 
@@ -563,7 +543,7 @@ static Bool intersect(Rect a, Rect b) {
 }
 
 static void step(GLFWwindow* window, f32 t) {
-    EXIT_IF(1.0f < t);
+    assert(t <= 1.0f);
 
     {
         const Vec2f prev = CAMERA;
@@ -694,12 +674,12 @@ static void step(GLFWwindow* window, f32 t) {
 }
 
 i32 main(i32 n, const char** args) {
-    EXIT_IF(n < 2);
+    assert(2 <= n);
     PATH_CONFIG = args[1];
 
     printf("GLFW version : %s\n", glfwGetVersionString());
 
-    EXIT_IF(!glfwInit());
+    assert(glfwInit());
     glfwSetErrorCallback(callback_error);
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -710,7 +690,7 @@ i32 main(i32 n, const char** args) {
         glfwCreateWindow(WINDOW_X, WINDOW_Y, WINDOW_NAME, NULL, NULL);
     if (!window) {
         glfwTerminate();
-        EXIT();
+        assert(0);
     }
     glfwSetKeyCallback(window, callback_key);
     glfwMakeContextCurrent(window);
@@ -765,7 +745,7 @@ i32 main(i32 n, const char** args) {
     CAMERA.x      = CAMERA_INIT.x + CAMERA_OFFSET.x;
     CAMERA.y      = CAMERA_INIT.y + CAMERA_OFFSET.y;
 
-    EXIT_IF(!compile_program());
+    assert(compile_program());
     glViewport(0, 0, WINDOW_X, WINDOW_Y);
 
     u64 prev     = now();
@@ -812,5 +792,5 @@ i32 main(i32 n, const char** args) {
     glDeleteBuffers(1, &instance_vbo);
     glDeleteProgram(PROGRAM);
     glfwTerminate();
-    return OK;
+    return 0;
 }
