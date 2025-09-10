@@ -86,17 +86,12 @@ static u32  LEN_BUFFER = 0;
 #define NANO_PER_SECOND  1000000000llu
 #define NANO_PER_MILLI   (NANO_PER_SECOND / MILLI_PER_SECOND)
 
+// NOTE: See `https://docs.nvidia.com/drive/drive_os_5.1.6.1L/nvvib_docs/DRIVE_OS_Linux_SDK_Development_Guide/Graphics/graphics_opengl.html`.
 static const Vec2f VERTICES[] = {
     {0.5f, 0.5f},
     {0.5f, -0.5f},
-    {-0.5f, -0.5f},
     {-0.5f, 0.5f},
-};
-
-// NOTE: See `https://docs.nvidia.com/drive/drive_os_5.1.6.1L/nvvib_docs/DRIVE_OS_Linux_SDK_Development_Guide/Graphics/graphics_opengl.html`.
-static const Vec3u INDICES[] = {
-    {0, 1, 3},
-    {1, 2, 3},
+    {-0.5f, -0.5f},
 };
 
 static const char* PATH_CONFIG;
@@ -733,8 +728,6 @@ i32 main(i32 n, const char** args) {
     u32 vbo;
     BIND_BUFFER(vbo, VERTICES, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
 
-    u32 ebo;
-    BIND_BUFFER(ebo, INDICES, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
     glEnableVertexAttribArray(INDEX_VERTEX);
     glVertexAttribPointer(INDEX_VERTEX,
                           2,
@@ -810,17 +803,12 @@ i32 main(i32 n, const char** args) {
                         ((f32)NANO_PER_SECOND));
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawElementsInstanced(GL_TRIANGLES,
-                                6,
-                                GL_UNSIGNED_BYTE,
-                                INDEX_VERTEX,
-                                (i32)LEN_RECTS);
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 6, (i32)LEN_RECTS);
         EXIT_IF_GL_ERROR()
         glfwSwapBuffers(window);
     }
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &instance_vbo);
     glDeleteProgram(PROGRAM);
     glfwTerminate();
