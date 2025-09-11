@@ -117,7 +117,7 @@ static Rect RECTS[] = {
     {{0.0f, 175.0f}, {250.0f, 5.0f}},
     {{-650.0f, 100.0f}, {250.0f, 5.0f}},
     {{625.0f, -400.0f}, {5.0f, 600.0f}},
-    {{500.0f, 0.0f}, {5.0f, 500.0f}},
+    {{500.0f, 10.0f}, {5.0f, 500.0f}},
     {{700.0f, 350.0f}, {5.0f, 300.0f}},
     {{600.0f, 1000.0f}, {5.0f, 900.0f}},
     {{1000.0f, 400.0f}, {250.0f, 5.0f}},
@@ -360,6 +360,14 @@ static u8 find_all_collisions(void) {
         Collision collision  = {0};
 
         for (u32 i = 0; i < (LEN_RECTS - 1); ++i) {
+            // NOTE: This *should* work because `BOXES` is sorted by `x`.
+            if (BOXES[i].right_top.x < (player_box.left_bottom.x + PLAYER_SPEED.x)) {
+                continue;
+            }
+            if ((player_box.right_top.x + PLAYER_SPEED.x) < BOXES[i].left_bottom.x) {
+                break;
+            }
+
             const Collision candidate = find_collision(&player_box, &BOXES[i], speed);
 
             if (!candidate.hit) {
@@ -610,6 +618,16 @@ i32 main(void) {
 
     for (u32 i = 0; i < (LEN_RECTS - 1); ++i) {
         BOXES[i] = rect_to_box(RECTS[i + 1]);
+    }
+
+    for (u32 i = 0; i < (LEN_RECTS - 1); ++i) {
+        const Box box = BOXES[i];
+
+        u32 j = i;
+        for (; (0 < j) && (box.left_bottom.x < BOXES[j - 1].left_bottom.x); --j) {
+            BOXES[j] = BOXES[j - 1];
+        }
+        BOXES[j] = box;
     }
 
     u64 prev    = now();
