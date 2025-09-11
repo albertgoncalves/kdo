@@ -23,6 +23,7 @@ flags=(
     -Werror
     -Weverything
     -Wno-c2x-extensions
+    -Wno-covered-switch-default
     -Wno-declaration-after-statement
     -Wno-extra-semi-stmt
     -Wno-padded

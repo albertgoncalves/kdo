@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <fcntl.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,6 +13,7 @@
 
 #include <GLFW/glfw3.h>
 
+typedef uint8_t  u8;
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int32_t  i32;
@@ -32,16 +34,27 @@ typedef enum {
 } Bool;
 
 typedef struct {
-    Bool x, y;
-} Vec2b;
-
-typedef struct {
     f32 x, y;
 } Vec2f;
 
 typedef struct {
     Vec2f center, scale;
 } Rect;
+
+typedef struct {
+    Vec2f left_bottom, right_top;
+} Box;
+
+typedef enum {
+    HIT_NONE = 0,
+    HIT_X    = 1 << 0,
+    HIT_Y    = 1 << 1,
+} Hit;
+
+typedef struct {
+    f32 time, overlap;
+    Hit hit;
+} Collision;
 
 #define CAP_BUFFER (1 << 12)
 static char BUFFER[CAP_BUFFER];
@@ -114,6 +127,8 @@ static Rect RECTS[] = {
     {{-1350.0f, 450.0f}, {800.0f, 5.0f}},
 };
 #define LEN_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
+
+static Box BOXES[LEN_RECTS - 1];
 
 #define PLAYER RECTS[0]
 
@@ -245,71 +260,158 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
     }
 }
 
-static Bool intersect(Rect a, Rect b) {
-    const Vec2f a_scale_half = {
-        .x = a.scale.x / 2.0f,
-        .y = a.scale.y / 2.0f,
+static Box rect_to_box(Rect rect) {
+    const Vec2f half_scale = (Vec2f){
+        .x = rect.scale.x / 2.0f,
+        .y = rect.scale.y / 2.0f,
     };
-    const Vec2f b_scale_half = {
-        .x = b.scale.x / 2.0f,
-        .y = b.scale.y / 2.0f,
+    return (Box){
+        .left_bottom.x = rect.center.x - half_scale.x,
+        .left_bottom.y = rect.center.y - half_scale.y,
+        .right_top.x   = rect.center.x + half_scale.x,
+        .right_top.y   = rect.center.y + half_scale.y,
     };
-    const Vec2f a_left_bottom = {
-        .x = a.center.x - a_scale_half.x,
-        .y = a.center.y - a_scale_half.y,
-    };
-    const Vec2f b_left_bottom = {
-        .x = b.center.x - b_scale_half.x,
-        .y = b.center.y - b_scale_half.y,
-    };
-    const Vec2f a_right_top = {
-        .x = a.center.x + a_scale_half.x,
-        .y = a.center.y + a_scale_half.y,
-    };
-    const Vec2f b_right_top = {
-        .x = b.center.x + b_scale_half.x,
-        .y = b.center.y + b_scale_half.y,
-    };
-    return ((a_left_bottom.x < b_right_top.x) && (b_left_bottom.x < a_right_top.x) &&
-            (a_left_bottom.y < b_right_top.y) && (b_left_bottom.y < a_right_top.y));
 }
 
-static Vec2b find_collisions(void) {
-    // NOTE: See `https://www.gamedev.net/articles/programming/general-and-gameplay-programming/swept-aabb-collision-detection-and-response-r3084/`.
-    Rect left_right = {
-        .center = {.y = PLAYER.center.y},
-        .scale  = {.y = PLAYER.scale.y},
+static Box move(const Box* box, Vec2f speed, f32 t) {
+    const Vec2f distance = (Vec2f){
+        .x = speed.x * t,
+        .y = speed.y * t,
     };
-    if (PLAYER_SPEED.x < 0.0f) {
-        left_right.center.x = PLAYER.center.x + ((-PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
-        left_right.scale.x  = -PLAYER_SPEED.x;
-    } else {
-        left_right.center.x = PLAYER.center.x + ((PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
-        left_right.scale.x  = PLAYER_SPEED.x;
-    }
-    Rect bottom_top = {
-        .center = {.x = PLAYER.center.x},
-        .scale  = {.x = PLAYER.scale.x},
+    return (Box){
+        .left_bottom = {.x = box->left_bottom.x + distance.x, .y = box->left_bottom.y + distance.y},
+        .right_top   = {.x = box->right_top.x + distance.x, .y = box->right_top.y + distance.y},
     };
-    if (PLAYER_SPEED.y < 0.0f) {
-        bottom_top.center.y = PLAYER.center.y + ((-PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
-        bottom_top.scale.y  = -PLAYER_SPEED.y;
-    } else {
-        bottom_top.center.y = PLAYER.center.y + ((PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
-        bottom_top.scale.y  = PLAYER_SPEED.y;
+}
+
+static f32 overlap_segment(f32 l0, f32 r0, f32 l1, f32 r1) {
+    const f32 a = l0 < l1 ? l1 : l0;
+    const f32 b = r0 < r1 ? r0 : r1;
+    const f32 c = b - a;
+    return c < 0.0f ? 0.0f : c;
+}
+
+static f32 overlap_box(const Box* l, const Box* r) {
+    return overlap_segment(l->left_bottom.x, l->right_top.x, r->left_bottom.x, r->right_top.x) +
+           overlap_segment(l->left_bottom.y, l->right_top.y, r->left_bottom.y, r->right_top.y);
+}
+
+static Collision find_collision(const Box* from, const Box* obstacle, Vec2f speed) {
+    Vec2f time = {
+        .x = -INFINITY,
+        .y = -INFINITY,
+    };
+
+    if (0.0f < speed.x) {
+        time.x = (obstacle->left_bottom.x - from->right_top.x) / speed.x;
+    } else if (speed.x < 0.0f) {
+        time.x = (obstacle->right_top.x - from->left_bottom.x) / speed.x;
     }
 
-    Vec2b collision = {0};
+    if (0.0f < speed.y) {
+        time.y = (obstacle->left_bottom.y - from->right_top.y) / speed.y;
+    } else if (speed.y < 0.0f) {
+        time.y = (obstacle->right_top.y - from->left_bottom.y) / speed.y;
+    }
 
-    for (u32 i = 1; i < LEN_RECTS; ++i) {
-        collision.x |= intersect(left_right, RECTS[i]);
-        collision.y |= intersect(bottom_top, RECTS[i]);
-        if (collision.x && collision.y) {
-            break;
+    Collision collision = {0};
+
+    if (time.y < time.x) {
+        if ((time.x < 0.0f) || (1.0f < time.x)) {
+            return collision;
+        }
+
+        Box to = move(from, speed, time.x);
+        if ((to.left_bottom.y < obstacle->right_top.y) &&
+            (obstacle->left_bottom.y < to.right_top.y))
+        {
+            collision.time    = time.x;
+            collision.overlap = overlap_box(&to, obstacle);
+            collision.hit     = HIT_X;
+        }
+    } else {
+        if ((time.y < 0.0f) || (1.0f < time.y)) {
+            return collision;
+        }
+
+        Box to = move(from, speed, time.y);
+        if ((to.left_bottom.x < obstacle->right_top.x) &&
+            (obstacle->left_bottom.x < to.right_top.x))
+        {
+            collision.time    = time.y;
+            collision.overlap = overlap_box(&to, obstacle);
+            collision.hit     = HIT_Y;
         }
     }
 
     return collision;
+}
+
+// TODO: Need a better name for this function.
+static u8 find_all_collisions(void) {
+    // NOTE: See `https://www.gamedev.net/articles/programming/general-and-gameplay-programming/swept-aabb-collision-detection-and-response-r3084/`.
+    Vec2f speed     = PLAYER_SPEED;
+    Vec2f remaining = PLAYER_SPEED;
+
+    u8 hits = 0;
+
+    for (u32 _ = 0; _ < 2; ++_) {
+        const Box player_box = rect_to_box(PLAYER);
+        Collision collision  = {0};
+
+        for (u32 i = 0; i < (LEN_RECTS - 1); ++i) {
+            const Collision candidate = find_collision(&player_box, &BOXES[i], speed);
+
+            if (!candidate.hit) {
+                continue;
+            }
+            if (!collision.hit) {
+                collision = candidate;
+                continue;
+            }
+            if (candidate.time < collision.time) {
+                collision = candidate;
+                continue;
+            }
+            if (((*(const u32*)&candidate.time) == (*(const u32*)&collision.time)) &&
+                (collision.overlap < candidate.overlap))
+            {
+                collision = candidate;
+            }
+        }
+
+        if (!collision.hit) {
+            break;
+        }
+
+        speed.x *= collision.time;
+        speed.y *= collision.time;
+        PLAYER.center.x += speed.x;
+        PLAYER.center.y += speed.y;
+        remaining.x -= speed.x;
+        remaining.y -= speed.y;
+
+        switch (collision.hit) {
+        case HIT_X: {
+            remaining.x = 0.0f;
+            break;
+        }
+        case HIT_Y: {
+            remaining.y = 0.0f;
+            break;
+        }
+        case HIT_NONE:
+        default: {
+            assert(0);
+        }
+        }
+
+        speed.x = remaining.x;
+        speed.y = remaining.y;
+        hits |= collision.hit;
+    }
+
+    return hits;
 }
 
 static void step(GLFWwindow* window, f32 t) {
@@ -363,36 +465,30 @@ static void step(GLFWwindow* window, f32 t) {
         }
     }
 
-    const Vec2b collision = find_collisions();
+    const u8 hits = find_all_collisions();
 
-    {
-        const Vec2f prev = PLAYER_SPEED;
-
-        if (collision.x) {
-            PLAYER_SPEED.x = -PLAYER_SPEED.x * BOUNCE;
-            PLAYER_SPEED.y *= GRAB;
-        }
-
-        if (collision.y) {
-            PLAYER_SPEED.x *= FRICTION;
-            PLAYER_SPEED.y = -PLAYER_SPEED.y * BOUNCE;
-        } else {
-            PLAYER_SPEED.x *= DRAG;
-        }
-
-        PLAYER_SPEED = lerp_vec2f(prev, PLAYER_SPEED, t);
+    // TODO: Do we need to scale `PLAYER_SPEED` by `t` here?
+    if (hits & HIT_X) {
+        PLAYER_SPEED.x = -PLAYER_SPEED.x * BOUNCE;
+        PLAYER_SPEED.y *= GRAB;
     }
 
-    if (!collision.x) {
+    // TODO: Do we need to scale `PLAYER_SPEED` by `t` here?
+    if (hits & HIT_Y) {
+        PLAYER_SPEED.x *= FRICTION;
+        PLAYER_SPEED.y = -PLAYER_SPEED.y * BOUNCE;
+    } else {
+        PLAYER_SPEED.x *= DRAG;
+    }
+
+    if (!(hits & HIT_X)) {
         PLAYER.center.x += PLAYER_SPEED.x;
     }
 
-    if (collision.y) {
-        if (PLAYER_SPEED.y < STICK) {
-            PLAYER_SPEED.y = 0.0f;
-        }
-    } else {
+    if (!(hits & HIT_Y)) {
         PLAYER.center.y += PLAYER_SPEED.y;
+    } else if (PLAYER_SPEED.y < STICK) {
+        PLAYER_SPEED.y = 0.0f;
     }
 
     if (PLAYER.center.y < RESET) {
@@ -400,8 +496,8 @@ static void step(GLFWwindow* window, f32 t) {
         PLAYER_SPEED  = (Vec2f){0};
     }
 
-    PLAYER_CAN_JUMP = (collision.x || collision.y) && (PLAYER_SPEED.y <= 0.0f);
-    PLAYER_CAN_LEAP = (!collision.y) && collision.x;
+    PLAYER_CAN_JUMP = (hits != 0) && (PLAYER_SPEED.y <= 0.0f);
+    PLAYER_CAN_LEAP = hits == HIT_X;
 }
 
 i32 main(void) {
@@ -511,6 +607,10 @@ i32 main(void) {
     glUniform2f(uniform_window, WINDOW_X, WINDOW_Y);
     glUniform1ui(UNIFORM_PAUSED, PAUSED);
     EXIT_IF_GL_ERROR();
+
+    for (u32 i = 0; i < (LEN_RECTS - 1); ++i) {
+        BOXES[i] = rect_to_box(RECTS[i + 1]);
+    }
 
     u64 prev    = now();
     u64 elapsed = 0;
