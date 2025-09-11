@@ -12,7 +12,6 @@
 
 #include <GLFW/glfw3.h>
 
-typedef uint8_t  u8;
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int32_t  i32;
@@ -33,46 +32,27 @@ typedef enum {
 } Bool;
 
 typedef struct {
-    const char* buffer;
-    u32         len;
-} String;
+    Bool x, y;
+} Vec2b;
 
 typedef struct {
     f32 x, y;
 } Vec2f;
 
 typedef struct {
-    u8 x, y, z;
-} Vec3u;
-
-typedef struct {
     Vec2f center, scale;
 } Rect;
-
-#define STRING(literal)      \
-    ((String){               \
-        literal,             \
-        sizeof(literal) - 1, \
-    })
 
 #define CAP_BUFFER (1 << 12)
 static char BUFFER[CAP_BUFFER];
 static u32  LEN_BUFFER = 0;
 
-#if 1
-    #define WINDOW_X 1200
-    #define WINDOW_Y 1000
-#else
-    #define WINDOW_X 900
-    #define WINDOW_Y 900
-#endif
+#define WINDOW_X    1200
+#define WINDOW_Y    1000
 #define WINDOW_NAME "kdo"
 
-#define PREFIX "\033[3A\n\n  # "
-
-#define BACKGROUND_COLOR 0.125f, 0.125f, 0.125f, 1.0f
-#define BACKGROUND_COLOR_PAUSED \
-    (1.0f - 0.125f), (1.0f - 0.125f), (1.0f - 0.125f), 1.0f
+#define BACKGROUND_COLOR        0.125f, 0.125f, 0.125f, 1.0f
+#define BACKGROUND_COLOR_PAUSED (1.0f - 0.125f), (1.0f - 0.125f), (1.0f - 0.125f), 1.0f
 
 #define INDEX_VERTEX    0
 #define INDEX_TRANSLATE 1
@@ -90,50 +70,59 @@ static const Vec2f VERTICES[] = {
     {-0.5f, -0.5f},
 };
 
-static const char* PATH_CONFIG;
-static const char* PATH_SHADER_VERT;
-static const char* PATH_SHADER_FRAG;
+#define PATH_SHADER_VERT "./src/vert.glsl"
+#define PATH_SHADER_FRAG "./src/frag.glsl"
 
-static u64 FRAME_UPDATE_COUNT;
-#define FRAME_DURATION    ((u64)((1.0 / 60.0) * NANO_PER_SECOND))
-#define FRAME_UPDATE_STEP (FRAME_DURATION / FRAME_UPDATE_COUNT)
+#define FRAME_UPDATE_COUNT 9
+#define FRAME_DURATION     ((u64)((1.0 / 60.0) * NANO_PER_SECOND))
+#define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
-static Vec2f CAMERA_INIT;
-static Vec2f CAMERA_OFFSET;
-static Vec2f CAMERA_LATENCY;
+#define CAMERA_INIT    ((Vec2f){-250.0f, -500.0f})
+#define CAMERA_OFFSET  ((Vec2f){0.0f, 100.0f})
+#define CAMERA_LATENCY ((Vec2f){400.0f, 200.0f})
+
 static Vec2f CAMERA;
 
-static f32 RUN;
-static f32 LEAP;
-static f32 FRICTION;
-static f32 DRAG;
+#define RUN      0.03575f
+#define LEAP     2.0f
+#define FRICTION 0.9675f
+#define DRAG     0.95f
+#define JUMP     1.9f
+#define GRAVITY  0.01f
+#define DROP     7.0f
+#define STICK    0.785f
+#define GRAB     0.9f
+#define BOUNCE   0.5325f
+#define RESET    -900.0f
 
-static f32 JUMP;
-static f32 GRAVITY;
-static f32 DROP;
-static f32 STICK;
-static f32 GRAB;
-static f32 RESET;
+#define PLAYER_CENTER_INIT ((Vec2f){0.0f, 500.0f})
+#define PLAYER_SCALE       ((Vec2f){27.5f, 27.5f})
 
-static f32 BOUNCE;
-
-#define CAP_RECTS (1 << 6)
-static Rect RECTS[CAP_RECTS];
-static u32  LEN_RECTS = 0;
+static Rect RECTS[] = {
+    {{0.0f, 0.0f}, PLAYER_SCALE},
+    {{-15.f, 30.0f}, {900.0f, 5.0f}},
+    {{0.0f, 175.0f}, {250.0f, 5.0f}},
+    {{-650.0f, 100.0f}, {250.0f, 5.0f}},
+    {{625.0f, -400.0f}, {5.0f, 600.0f}},
+    {{500.0f, 0.0f}, {5.0f, 500.0f}},
+    {{700.0f, 350.0f}, {5.0f, 300.0f}},
+    {{600.0f, 1000.0f}, {5.0f, 900.0f}},
+    {{1000.0f, 400.0f}, {250.0f, 5.0f}},
+    {{800.0f, 1200.0f}, {5.0f, 125.0f}},
+    {{900.0f, 900.0f}, {50.0f, 5.0f}},
+    {{-300.0f, 500.0f}, {5.0f, 250.0f}},
+    {{-1350.0f, 450.0f}, {800.0f, 5.0f}},
+};
+#define LEN_RECTS (sizeof(RECTS) / sizeof(RECTS[0]))
 
 #define PLAYER RECTS[0]
 
-static Vec2f PLAYER_CENTER_INIT;
 static Vec2f PLAYER_SPEED = {0};
 static Bool  PLAYER_CAN_JUMP;
 static Bool  PLAYER_CAN_LEAP;
 
 static Bool PAUSED = FALSE;
 
-static u32 PROGRAM;
-static i32 UNIFORM_CAMERA;
-static i32 UNIFORM_WINDOW;
-static i32 UNIFORM_TIME_SECONDS;
 static i32 UNIFORM_PAUSED;
 
 #define EXIT_IF_GL_ERROR()                                   \
@@ -163,229 +152,6 @@ static i32 UNIFORM_PAUSED;
         }                                                    \
     }
 
-#define IS_DIGIT(x) (('0' <= (x)) && ((x) <= '9'))
-
-#define IS_SPACE(x) (((x) == ' ') || ((x) == '\n'))
-
-static Bool eq(String a, String b) {
-    return (a.len == b.len) && (!memcmp(a.buffer, b.buffer, a.len));
-}
-
-static const char* string_to_buffer(String string) {
-    assert((LEN_BUFFER + string.len + 1) < CAP_BUFFER);
-    char* copy = &BUFFER[LEN_BUFFER];
-    memcpy(copy, string.buffer, string.len);
-    LEN_BUFFER += string.len;
-    BUFFER[LEN_BUFFER++] = '\0';
-    return copy;
-}
-
-static MemMap path_to_map(const char* path) {
-    assert(path);
-    const i32 file = open(path, O_RDONLY);
-    assert(0 <= file);
-    FileStat stat;
-    assert(0 <= fstat(file, &stat));
-    const MemMap map = {
-        .address =
-            mmap(NULL, (u32)stat.st_size, PROT_READ, MAP_SHARED, file, 0),
-        .len = (u32)stat.st_size,
-    };
-    assert(map.address != MAP_FAILED);
-    close(file);
-    return map;
-}
-
-static const char* map_to_buffer(MemMap map) {
-    const String string = {
-        .buffer = (const char*)map.address,
-        .len    = map.len,
-    };
-    return string_to_buffer(string);
-}
-
-static void skip_spaces(const char** buffer) {
-    for (;;) {
-        while (IS_SPACE(**buffer)) {
-            ++(*buffer);
-        }
-        if (**buffer == '#') {
-            ++(*buffer);
-            while (**buffer != '\n') {
-                if (**buffer == '\0') {
-                    return;
-                }
-                ++(*buffer);
-            }
-            continue;
-        }
-        return;
-    }
-}
-
-static String parse_key(const char** buffer) {
-    String string = {
-        .buffer = *buffer,
-    };
-    while (!IS_SPACE(**buffer)) {
-        assert(**buffer != '\0');
-        ++(*buffer);
-    }
-    string.len = (u32)(*buffer - string.buffer);
-    ++(*buffer);
-    return string;
-}
-
-static String parse_string(const char** buffer) {
-    assert(**buffer == '"');
-    ++(*buffer);
-    String string = {
-        .buffer = *buffer,
-    };
-    while (**buffer != '"') {
-        assert(**buffer != '\0');
-        ++(*buffer);
-    }
-    string.len = (u32)(*buffer - string.buffer);
-    ++(*buffer);
-    return string;
-}
-
-static f32 parse_f32(const char** buffer) {
-    Bool negate = FALSE;
-    if (**buffer == '-') {
-        negate = TRUE;
-        ++(*buffer);
-    }
-    f32 a = 0.0f;
-    while (IS_DIGIT(**buffer)) {
-        a = (a * 10.0f) + ((f32)(**buffer - '0'));
-        ++(*buffer);
-    }
-    if (**buffer == '.') {
-        ++(*buffer);
-        f32 b = 0.0f;
-        f32 c = 1.0f;
-        while (IS_DIGIT(**buffer)) {
-            b = (b * 10.0f) + ((f32)(**buffer - '0'));
-            c *= 10.0f;
-            ++(*buffer);
-        }
-        a += b / c;
-    }
-    if (negate) {
-        return -a;
-    }
-    return a;
-}
-
-static u64 parse_u64(const char** buffer) {
-    Bool negate = FALSE;
-    if (**buffer == '-') {
-        negate = TRUE;
-        ++(*buffer);
-    }
-    u64 x = 0;
-    while (IS_DIGIT(**buffer)) {
-        x = (x * 10) + ((u64)(**buffer - '0'));
-        ++(*buffer);
-    }
-    if (negate) {
-        return -x;
-    }
-    return x;
-}
-
-static Vec2f parse_vec2f(const char** buffer) {
-    Vec2f vec;
-    vec.x = parse_f32(buffer);
-    skip_spaces(buffer);
-    vec.y = parse_f32(buffer);
-    return vec;
-}
-
-static Rect parse_rect(const char** buffer) {
-    Rect rect;
-    rect.center = parse_vec2f(buffer);
-    skip_spaces(buffer);
-    rect.scale = parse_vec2f(buffer);
-    return rect;
-}
-
-static void load_config(const char* path) {
-    LEN_BUFFER = 0;
-    LEN_RECTS  = 1;
-
-    const MemMap map    = path_to_map(path);
-    const char*  config = map_to_buffer(map);
-    for (;;) {
-        skip_spaces(&config);
-        if (*config == '\0') {
-            break;
-        }
-        const String key = parse_key(&config);
-        skip_spaces(&config);
-        if (eq(key, STRING("PATH_SHADER_VERT"))) {
-            PATH_SHADER_VERT = string_to_buffer(parse_string(&config));
-        } else if (eq(key, STRING("PATH_SHADER_FRAG"))) {
-            PATH_SHADER_FRAG = string_to_buffer(parse_string(&config));
-        } else if (eq(key, STRING("FRAME_UPDATE_COUNT"))) {
-            FRAME_UPDATE_COUNT = parse_u64(&config);
-        } else if (eq(key, STRING("CAMERA_INIT"))) {
-            CAMERA_INIT = parse_vec2f(&config);
-        } else if (eq(key, STRING("CAMERA_OFFSET"))) {
-            CAMERA_OFFSET = parse_vec2f(&config);
-        } else if (eq(key, STRING("CAMERA_LATENCY"))) {
-            CAMERA_LATENCY = parse_vec2f(&config);
-        } else if (eq(key, STRING("RUN"))) {
-            RUN = parse_f32(&config);
-        } else if (eq(key, STRING("LEAP"))) {
-            LEAP = parse_f32(&config);
-        } else if (eq(key, STRING("FRICTION"))) {
-            FRICTION = parse_f32(&config);
-        } else if (eq(key, STRING("DRAG"))) {
-            DRAG = parse_f32(&config);
-        } else if (eq(key, STRING("JUMP"))) {
-            JUMP = parse_f32(&config);
-        } else if (eq(key, STRING("GRAVITY"))) {
-            GRAVITY = parse_f32(&config);
-        } else if (eq(key, STRING("DROP"))) {
-            DROP = parse_f32(&config);
-        } else if (eq(key, STRING("BOUNCE"))) {
-            BOUNCE = parse_f32(&config);
-        } else if (eq(key, STRING("STICK"))) {
-            STICK = parse_f32(&config);
-        } else if (eq(key, STRING("GRAB"))) {
-            GRAB = parse_f32(&config);
-        } else if (eq(key, STRING("RESET"))) {
-            RESET = parse_f32(&config);
-        } else if (eq(key, STRING("PLAYER_CENTER_INIT"))) {
-            PLAYER_CENTER_INIT = parse_vec2f(&config);
-        } else if (eq(key, STRING("PLAYER_SCALE"))) {
-            RECTS[0].scale = parse_vec2f(&config);
-        } else if (eq(key, STRING("RECTS"))) {
-            assert(*config == '{');
-            ++config;
-            skip_spaces(&config);
-            while (*config != '}') {
-                assert(LEN_RECTS < CAP_RECTS);
-                RECTS[LEN_RECTS++] = parse_rect(&config);
-                skip_spaces(&config);
-            }
-            ++config;
-        } else {
-            printf(PREFIX "unexpected key: `%.*s`\n", key.len, key.buffer);
-            assert(0);
-        }
-    }
-    assert(!munmap(map.address, map.len));
-    glBufferSubData(GL_ARRAY_BUFFER,
-                    sizeof(RECTS[0]),
-                    (LEN_RECTS - 1) * sizeof(RECTS[0]),
-                    &RECTS[1]);
-    EXIT_IF_GL_ERROR()
-}
-
 static u64 now(void) {
     Time time;
     assert(!clock_gettime(CLOCK_MONOTONIC, &time));
@@ -403,28 +169,48 @@ static Vec2f lerp_vec2f(Vec2f l, Vec2f r, f32 t) {
     };
 }
 
-__attribute__((noreturn)) static void callback_error(i32         code,
-                                                     const char* error) {
+__attribute__((noreturn)) static void callback_error(i32 code, const char* error) {
     printf("%d: %s\n", code, error);
     assert(0);
 }
 
-static i32 compile_shader(const char* path, u32 shader) {
-    const MemMap map    = path_to_map(path);
-    const char*  source = map_to_buffer(map);
-    glShaderSource(shader, 1, &source, NULL);
+static void compile_shader(const char* path, u32 shader) {
+    const i32 file = open(path, O_RDONLY);
+    assert(0 <= file);
+
+    FileStat stat;
+    assert(0 <= fstat(file, &stat));
+
+    const MemMap map = {
+        .address = mmap(NULL, (u32)stat.st_size, PROT_READ, MAP_SHARED, file, 0),
+        .len     = (u32)stat.st_size,
+    };
+    assert(map.address != MAP_FAILED);
+    close(file);
+
+    const u32 prev = LEN_BUFFER;
+
+    assert((LEN_BUFFER + map.len + 1) < CAP_BUFFER);
+    char* source = &BUFFER[LEN_BUFFER];
+    memcpy(source, (const char*)map.address, map.len);
+
+    LEN_BUFFER += map.len;
+    BUFFER[LEN_BUFFER++] = '\0';
+
+    glShaderSource(shader, 1, (const char* const*)(&source), NULL);
     glCompileShader(shader);
+
     i32 status = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (!status) {
-        glGetShaderInfoLog(shader,
-                           (i32)(CAP_BUFFER - LEN_BUFFER),
-                           NULL,
-                           &BUFFER[LEN_BUFFER]);
+        glGetShaderInfoLog(shader, (i32)(CAP_BUFFER - LEN_BUFFER), NULL, &BUFFER[LEN_BUFFER]);
         printf("%s", &BUFFER[LEN_BUFFER]);
     }
+
+    assert(status);
+
     assert(!munmap(map.address, map.len));
-    return status;
+    LEN_BUFFER = prev;
 }
 
 #define BIND_BUFFER(object, array, target, usage)          \
@@ -435,65 +221,13 @@ static i32 compile_shader(const char* path, u32 shader) {
         EXIT_IF_GL_ERROR();                                \
     }
 
-static i32 compile_program(void) {
-    PROGRAM               = glCreateProgram();
-    const u32 shader_vert = glCreateShader(GL_VERTEX_SHADER);
-    const u32 shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
-    {
-        const i32 status = compile_shader(PATH_SHADER_VERT, shader_vert);
-        if (!status) {
-            return status;
-        }
-    }
-    {
-        const i32 status = compile_shader(PATH_SHADER_FRAG, shader_frag);
-        if (!status) {
-            return status;
-        }
-    }
-    glAttachShader(PROGRAM, shader_vert);
-    glAttachShader(PROGRAM, shader_frag);
-    glLinkProgram(PROGRAM);
-    i32 status = 0;
-    glGetProgramiv(PROGRAM, GL_LINK_STATUS, &status);
-    if (!status) {
-        glGetProgramInfoLog(PROGRAM,
-                            (i32)(CAP_BUFFER - LEN_BUFFER),
-                            NULL,
-                            &BUFFER[LEN_BUFFER]);
-        printf("%s", &BUFFER[LEN_BUFFER]);
-        return status;
-    }
-    glDeleteShader(shader_vert);
-    glDeleteShader(shader_frag);
-    glUseProgram(PROGRAM);
-    UNIFORM_CAMERA       = glGetUniformLocation(PROGRAM, "CAMERA");
-    UNIFORM_WINDOW       = glGetUniformLocation(PROGRAM, "WINDOW");
-    UNIFORM_TIME_SECONDS = glGetUniformLocation(PROGRAM, "TIME_SECONDS");
-    UNIFORM_PAUSED       = glGetUniformLocation(PROGRAM, "PAUSED");
-    glUniform2f(UNIFORM_WINDOW, WINDOW_X, WINDOW_Y);
-    glUniform1ui(UNIFORM_PAUSED, PAUSED);
-    EXIT_IF_GL_ERROR();
-    return status;
-}
-
 static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
-    if (action != GLFW_PRESS) {
+    if (action != GLFW_RELEASE) {
         return;
     }
     switch (key) {
     case GLFW_KEY_ESCAPE: {
-        printf(PREFIX "closing window\n");
         glfwSetWindowShouldClose(window, TRUE);
-        break;
-    }
-    case GLFW_KEY_R: {
-        printf(PREFIX "loading config\n");
-        load_config(PATH_CONFIG);
-        glDeleteProgram(PROGRAM);
-        if (!compile_program()) {
-            printf(PREFIX "unable to compile shader\n");
-        }
         break;
     }
     case GLFW_KEY_E: {
@@ -536,10 +270,46 @@ static Bool intersect(Rect a, Rect b) {
         .x = b.center.x + b_scale_half.x,
         .y = b.center.y + b_scale_half.y,
     };
-    return ((a_left_bottom.x < b_right_top.x) &&
-            (b_left_bottom.x < a_right_top.x) &&
-            (a_left_bottom.y < b_right_top.y) &&
-            (b_left_bottom.y < a_right_top.y));
+    return ((a_left_bottom.x < b_right_top.x) && (b_left_bottom.x < a_right_top.x) &&
+            (a_left_bottom.y < b_right_top.y) && (b_left_bottom.y < a_right_top.y));
+}
+
+static Vec2b find_collisions(void) {
+    // NOTE: See `https://www.gamedev.net/articles/programming/general-and-gameplay-programming/swept-aabb-collision-detection-and-response-r3084/`.
+    Rect left_right = {
+        .center = {.y = PLAYER.center.y},
+        .scale  = {.y = PLAYER.scale.y},
+    };
+    if (PLAYER_SPEED.x < 0.0f) {
+        left_right.center.x = PLAYER.center.x + ((-PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
+        left_right.scale.x  = -PLAYER_SPEED.x;
+    } else {
+        left_right.center.x = PLAYER.center.x + ((PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
+        left_right.scale.x  = PLAYER_SPEED.x;
+    }
+    Rect bottom_top = {
+        .center = {.x = PLAYER.center.x},
+        .scale  = {.x = PLAYER.scale.x},
+    };
+    if (PLAYER_SPEED.y < 0.0f) {
+        bottom_top.center.y = PLAYER.center.y + ((-PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
+        bottom_top.scale.y  = -PLAYER_SPEED.y;
+    } else {
+        bottom_top.center.y = PLAYER.center.y + ((PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
+        bottom_top.scale.y  = PLAYER_SPEED.y;
+    }
+
+    Vec2b collision = {0};
+
+    for (u32 i = 1; i < LEN_RECTS; ++i) {
+        collision.x |= intersect(left_right, RECTS[i]);
+        collision.y |= intersect(bottom_top, RECTS[i]);
+        if (collision.x && collision.y) {
+            break;
+        }
+    }
+
+    return collision;
 }
 
 static void step(GLFWwindow* window, f32 t) {
@@ -547,10 +317,8 @@ static void step(GLFWwindow* window, f32 t) {
 
     {
         const Vec2f prev = CAMERA;
-        CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) /
-                    CAMERA_LATENCY.x;
-        CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) /
-                    CAMERA_LATENCY.y;
+        CAMERA.x -= ((CAMERA.x - CAMERA_OFFSET.x) - PLAYER.center.x) / CAMERA_LATENCY.x;
+        CAMERA.y -= ((CAMERA.y - CAMERA_OFFSET.y) - PLAYER.center.y) / CAMERA_LATENCY.y;
         CAMERA = lerp_vec2f(prev, CAMERA, t);
     }
 
@@ -595,54 +363,17 @@ static void step(GLFWwindow* window, f32 t) {
         }
     }
 
-    // NOTE: See `https://www.gamedev.net/articles/programming/general-and-gameplay-programming/swept-aabb-collision-detection-and-response-r3084/`.
-    Rect left_right = {
-        .center = {.y = PLAYER.center.y},
-        .scale  = {.y = PLAYER.scale.y},
-    };
-    if (PLAYER_SPEED.x < 0.0f) {
-        left_right.center.x =
-            PLAYER.center.x + ((-PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
-        left_right.scale.x = -PLAYER_SPEED.x;
-    } else {
-        left_right.center.x =
-            PLAYER.center.x + ((PLAYER.scale.x + PLAYER_SPEED.x) / 2.0f);
-        left_right.scale.x = PLAYER_SPEED.x;
-    }
-    Rect bottom_top = {
-        .center = {.x = PLAYER.center.x},
-        .scale  = {.x = PLAYER.scale.x},
-    };
-    if (PLAYER_SPEED.y < 0.0f) {
-        bottom_top.center.y =
-            PLAYER.center.y + ((-PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
-        bottom_top.scale.y = -PLAYER_SPEED.y;
-    } else {
-        bottom_top.center.y =
-            PLAYER.center.y + ((PLAYER.scale.y + PLAYER_SPEED.y) / 2.0f);
-        bottom_top.scale.y = PLAYER_SPEED.y;
-    }
-
-    Bool collide_x = FALSE;
-    Bool collide_y = FALSE;
-
-    for (u32 i = 1; i < LEN_RECTS; ++i) {
-        collide_x |= intersect(left_right, RECTS[i]);
-        collide_y |= intersect(bottom_top, RECTS[i]);
-        if (collide_x && collide_y) {
-            break;
-        }
-    }
+    const Vec2b collision = find_collisions();
 
     {
         const Vec2f prev = PLAYER_SPEED;
 
-        if (collide_x) {
+        if (collision.x) {
             PLAYER_SPEED.x = -PLAYER_SPEED.x * BOUNCE;
             PLAYER_SPEED.y *= GRAB;
         }
 
-        if (collide_y) {
+        if (collision.y) {
             PLAYER_SPEED.x *= FRICTION;
             PLAYER_SPEED.y = -PLAYER_SPEED.y * BOUNCE;
         } else {
@@ -652,11 +383,11 @@ static void step(GLFWwindow* window, f32 t) {
         PLAYER_SPEED = lerp_vec2f(prev, PLAYER_SPEED, t);
     }
 
-    if (!collide_x) {
+    if (!collision.x) {
         PLAYER.center.x += PLAYER_SPEED.x;
     }
 
-    if (collide_y) {
+    if (collision.y) {
         if (PLAYER_SPEED.y < STICK) {
             PLAYER_SPEED.y = 0.0f;
         }
@@ -669,14 +400,11 @@ static void step(GLFWwindow* window, f32 t) {
         PLAYER_SPEED  = (Vec2f){0};
     }
 
-    PLAYER_CAN_JUMP = (collide_x || collide_y) && (PLAYER_SPEED.y <= 0.0f);
-    PLAYER_CAN_LEAP = (!collide_y) && collide_x;
+    PLAYER_CAN_JUMP = (collision.x || collision.y) && (PLAYER_SPEED.y <= 0.0f);
+    PLAYER_CAN_LEAP = (!collision.y) && collision.x;
 }
 
-i32 main(i32 n, const char** args) {
-    assert(2 <= n);
-    PATH_CONFIG = args[1];
-
+i32 main(void) {
     printf("GLFW version : %s\n", glfwGetVersionString());
 
     assert(glfwInit());
@@ -686,12 +414,10 @@ i32 main(i32 n, const char** args) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, FALSE);
-    GLFWwindow* window =
-        glfwCreateWindow(WINDOW_X, WINDOW_Y, WINDOW_NAME, NULL, NULL);
-    if (!window) {
-        glfwTerminate();
-        assert(0);
-    }
+
+    GLFWwindow* window = glfwCreateWindow(WINDOW_X, WINDOW_Y, WINDOW_NAME, NULL, NULL);
+    assert(window);
+
     glfwSetKeyCallback(window, callback_key);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -709,12 +435,7 @@ i32 main(i32 n, const char** args) {
     BIND_BUFFER(vbo, VERTICES, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(INDEX_VERTEX);
-    glVertexAttribPointer(INDEX_VERTEX,
-                          2,
-                          GL_FLOAT,
-                          FALSE,
-                          sizeof(VERTICES[0]),
-                          0);
+    glVertexAttribPointer(INDEX_VERTEX, 2, GL_FLOAT, FALSE, sizeof(VERTICES[0]), 0);
     EXIT_IF_GL_ERROR();
 
     u32 instance_vbo;
@@ -740,57 +461,109 @@ i32 main(i32 n, const char** args) {
     glVertexAttribDivisor(INDEX_SCALE, 1);
     EXIT_IF_GL_ERROR();
 
-    load_config(PATH_CONFIG);
-    PLAYER.center = PLAYER_CENTER_INIT;
-    CAMERA.x      = CAMERA_INIT.x + CAMERA_OFFSET.x;
-    CAMERA.y      = CAMERA_INIT.y + CAMERA_OFFSET.y;
+    glBufferSubData(GL_ARRAY_BUFFER,
+                    sizeof(RECTS[0]),
+                    (LEN_RECTS - 1) * sizeof(RECTS[0]),
+                    &RECTS[1]);
+    EXIT_IF_GL_ERROR()
 
-    assert(compile_program());
+    PLAYER.center = PLAYER_CENTER_INIT;
+
+    CAMERA.x = CAMERA_INIT.x + CAMERA_OFFSET.x;
+    CAMERA.y = CAMERA_INIT.y + CAMERA_OFFSET.y;
+
     glViewport(0, 0, WINDOW_X, WINDOW_Y);
 
-    u64 prev     = now();
-    u64 interval = now();
-    u64 frames   = 0;
-    printf("\n\n\n");
+    const u32 program = glCreateProgram();
+
+    const u32 shader_vert = glCreateShader(GL_VERTEX_SHADER);
+    const u32 shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
+
+    compile_shader(PATH_SHADER_VERT, shader_vert);
+    compile_shader(PATH_SHADER_FRAG, shader_frag);
+
+    assert(LEN_BUFFER == 0);
+
+    glAttachShader(program, shader_vert);
+    glAttachShader(program, shader_frag);
+    glLinkProgram(program);
+
+    {
+        i32 status = 0;
+        glGetProgramiv(program, GL_LINK_STATUS, &status);
+
+        if (!status) {
+            glGetProgramInfoLog(program, CAP_BUFFER, NULL, &BUFFER[0]);
+            printf("%s", &BUFFER[0]);
+            assert(0);
+        }
+    }
+
+    glDeleteShader(shader_vert);
+    glDeleteShader(shader_frag);
+    glUseProgram(program);
+
+    const i32 uniform_camera = glGetUniformLocation(program, "camera");
+    const i32 uniform_window = glGetUniformLocation(program, "window");
+    const i32 uniform_time   = glGetUniformLocation(program, "time");
+    UNIFORM_PAUSED           = glGetUniformLocation(program, "paused");
+
+    glUniform2f(uniform_window, WINDOW_X, WINDOW_Y);
+    glUniform1ui(UNIFORM_PAUSED, PAUSED);
+    EXIT_IF_GL_ERROR();
+
+    u64 prev    = now();
+    u64 elapsed = 0;
+    u64 frames  = 0;
+
+    printf("\n\n");
     while (!glfwWindowShouldClose(window)) {
         const u64 start = now();
-        ++frames;
-        if (NANO_PER_SECOND <= (start - interval)) {
-            printf("\033[3A"
+
+        u64 delta = start - prev;
+        elapsed += delta;
+        prev = start;
+
+        if (NANO_PER_SECOND <= elapsed) {
+            printf("\033[2A"
                    "%7.4f ms/f\n"
-                   "%7lu f/s\n"
-                   "                                \n",
+                   "%7lu f/s\n",
                    (NANO_PER_SECOND / (f64)frames) / NANO_PER_MILLI,
                    frames);
-            interval += NANO_PER_SECOND;
-            frames = 0;
+            elapsed = 0;
+            frames  = 0;
         }
+
+        ++frames;
 
         glfwPollEvents();
 
-        u64 delta = start - prev;
         for (; FRAME_UPDATE_STEP < delta; delta -= FRAME_UPDATE_STEP) {
             step(window, 1.0f);
         }
         step(window, ((f32)delta) / FRAME_UPDATE_STEP);
 
-        prev = start;
-
-        glUniform2f(UNIFORM_CAMERA, CAMERA.x, CAMERA.y);
+        glUniform2f(uniform_camera, CAMERA.x, CAMERA.y);
         // NOTE: See `http://the-witness.net/news/2022/02/a-shader-trick/`.
-        glUniform1f(UNIFORM_TIME_SECONDS,
-                    ((f32)(now() % (NANO_PER_SECOND * 10llu))) /
-                        ((f32)NANO_PER_SECOND));
+        glUniform1f(uniform_time,
+                    ((f32)(now() % (NANO_PER_SECOND * 10llu))) / ((f32)NANO_PER_SECOND));
+
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
+
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 6, (i32)LEN_RECTS);
+
         EXIT_IF_GL_ERROR()
+
         glfwSwapBuffers(window);
     }
+
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &instance_vbo);
-    glDeleteProgram(PROGRAM);
+    glDeleteProgram(program);
+
     glfwTerminate();
+
     return 0;
 }

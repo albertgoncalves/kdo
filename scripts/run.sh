@@ -30,4 +30,4 @@ flags=(
 )
 clang-format -i -verbose "$WD/src/"*
 mold -run clang "${flags[@]}" -o "$WD/bin/main" "$WD/src/main.c"
-prime-run "$WD/bin/main" "$WD/assets/config"
+"$WD/bin/main"

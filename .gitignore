@@ -13,6 +13,3 @@
 !*.h
 !*.c
 !*.glsl
-
-!assets/
-!assets/config
