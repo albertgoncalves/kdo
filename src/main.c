@@ -350,6 +350,7 @@ static u8 find_all_collisions(void) {
             if (BOXES[i].right_top.x < (player_box.left_bottom.x + PLAYER_SPEED.x)) {
                 continue;
             }
+            // NOTE: See `https://leanrada.com/notes/sweep-and-prune/`.
             if ((player_box.right_top.x + PLAYER_SPEED.x) < BOXES[i].left_bottom.x) {
                 break;
             }
