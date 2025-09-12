@@ -71,23 +71,16 @@ static u32  LEN_BUFFER = 0;
 #define INDEX_TRANSLATE 1
 #define INDEX_SCALE     2
 
-#define MILLI_PER_SECOND 1000llu
-#define NANO_PER_SECOND  1000000000llu
-#define NANO_PER_MILLI   (NANO_PER_SECOND / MILLI_PER_SECOND)
+#define NANO_PER_SECOND 1000000000
 
 // NOTE: See `https://docs.nvidia.com/drive/drive_os_5.1.6.1L/nvvib_docs/DRIVE_OS_Linux_SDK_Development_Guide/Graphics/graphics_opengl.html`.
-static const Vec2f VERTICES[] = {
-    {0.5f, 0.5f},
-    {0.5f, -0.5f},
-    {-0.5f, 0.5f},
-    {-0.5f, -0.5f},
-};
+static const Vec2f VERTICES[] = {{0.5f, 0.5f}, {0.5f, -0.5f}, {-0.5f, 0.5f}, {-0.5f, -0.5f}};
 
 #define PATH_SHADER_VERT "./src/vert.glsl"
 #define PATH_SHADER_FRAG "./src/frag.glsl"
 
 #define FRAME_UPDATE_COUNT 9
-#define FRAME_DURATION     ((u64)((1.0 / 60.0) * NANO_PER_SECOND))
+#define FRAME_DURATION     ((1.0 / 60.0) * NANO_PER_SECOND)
 #define FRAME_UPDATE_STEP  (FRAME_DURATION / FRAME_UPDATE_COUNT)
 
 #define CAMERA_INIT    ((Vec2f){-250.0f, -500.0f})
@@ -117,8 +110,8 @@ static Rect RECTS[] = {
     {{0.0f, 175.0f}, {250.0f, 5.0f}},
     {{-650.0f, 100.0f}, {250.0f, 5.0f}},
     {{625.0f, -400.0f}, {5.0f, 600.0f}},
-    {{500.0f, 10.0f}, {5.0f, 500.0f}},
-    {{700.0f, 350.0f}, {5.0f, 300.0f}},
+    {{500.0f, 50.0f}, {5.0f, 500.0f}},
+    {{700.0f, 300.0f}, {5.0f, 300.0f}},
     {{600.0f, 1000.0f}, {5.0f, 900.0f}},
     {{1000.0f, 400.0f}, {250.0f, 5.0f}},
     {{800.0f, 1200.0f}, {5.0f, 125.0f}},
@@ -167,10 +160,10 @@ static i32 UNIFORM_PAUSED;
         }                                                    \
     }
 
-static u64 now(void) {
+static u64 clock_monotonic(void) {
     Time time;
     assert(!clock_gettime(CLOCK_MONOTONIC, &time));
-    return ((u64)time.tv_sec * 1000000000llu) + (u64)time.tv_nsec;
+    return (((u64)time.tv_sec) * 1000000000llu) + (u64)time.tv_nsec;
 }
 
 static f32 lerp_f32(f32 l, f32 r, f32 t) {
@@ -178,10 +171,7 @@ static f32 lerp_f32(f32 l, f32 r, f32 t) {
 }
 
 static Vec2f lerp_vec2f(Vec2f l, Vec2f r, f32 t) {
-    return (Vec2f){
-        .x = lerp_f32(l.x, r.x, t),
-        .y = lerp_f32(l.y, r.y, t),
-    };
+    return (Vec2f){.x = lerp_f32(l.x, r.x, t), .y = lerp_f32(l.y, r.y, t)};
 }
 
 __attribute__((noreturn)) static void callback_error(i32 code, const char* error) {
@@ -261,10 +251,7 @@ static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
 }
 
 static Box rect_to_box(Rect rect) {
-    const Vec2f half_scale = (Vec2f){
-        .x = rect.scale.x / 2.0f,
-        .y = rect.scale.y / 2.0f,
-    };
+    const Vec2f half_scale = (Vec2f){.x = rect.scale.x / 2.0f, .y = rect.scale.y / 2.0f};
     return (Box){
         .left_bottom.x = rect.center.x - half_scale.x,
         .left_bottom.y = rect.center.y - half_scale.y,
@@ -274,21 +261,23 @@ static Box rect_to_box(Rect rect) {
 }
 
 static Box move(const Box* box, Vec2f speed, f32 t) {
-    const Vec2f distance = (Vec2f){
-        .x = speed.x * t,
-        .y = speed.y * t,
-    };
+    const Vec2f distance = (Vec2f){.x = speed.x * t, .y = speed.y * t};
     return (Box){
         .left_bottom = {.x = box->left_bottom.x + distance.x, .y = box->left_bottom.y + distance.y},
         .right_top   = {.x = box->right_top.x + distance.x, .y = box->right_top.y + distance.y},
     };
 }
 
+static f32 min(f32 a, f32 b) {
+    return a < b ? a : b;
+}
+
+static f32 max(f32 a, f32 b) {
+    return a < b ? b : a;
+}
+
 static f32 overlap_segment(f32 l0, f32 r0, f32 l1, f32 r1) {
-    const f32 a = l0 < l1 ? l1 : l0;
-    const f32 b = r0 < r1 ? r0 : r1;
-    const f32 c = b - a;
-    return c < 0.0f ? 0.0f : c;
+    return max(0.0f, min(r0, r1) - max(l0, l1));
 }
 
 static f32 overlap_box(const Box* l, const Box* r) {
@@ -297,10 +286,7 @@ static f32 overlap_box(const Box* l, const Box* r) {
 }
 
 static Collision find_collision(const Box* from, const Box* obstacle, Vec2f speed) {
-    Vec2f time = {
-        .x = -INFINITY,
-        .y = -INFINITY,
-    };
+    Vec2f time = {-INFINITY, -INFINITY};
 
     if (0.0f < speed.x) {
         time.x = (obstacle->left_bottom.x - from->right_top.x) / speed.x;
@@ -630,41 +616,52 @@ i32 main(void) {
         BOXES[j] = box;
     }
 
-    u64 prev    = now();
-    u64 elapsed = 0;
-    u64 frames  = 0;
+    u64 prev        = clock_monotonic();
+    u64 nanoseconds = 0;
+    u64 frames      = 0;
+    u64 steps       = 0;
 
-    printf("\n\n");
+    printf("\n\n\n\n\n");
     while (!glfwWindowShouldClose(window)) {
-        const u64 start = now();
+        const u64 now     = clock_monotonic();
+        const u64 elapsed = now - prev;
 
-        u64 delta = start - prev;
-        elapsed += delta;
-        prev = start;
+        nanoseconds += elapsed;
+        prev = now;
 
-        if (NANO_PER_SECOND <= elapsed) {
-            printf("\033[2A"
-                   "%7.4f ms/f\n"
-                   "%7lu f/s\n",
-                   (NANO_PER_SECOND / (f64)frames) / NANO_PER_MILLI,
-                   frames);
-            elapsed = 0;
-            frames  = 0;
+        if (NANO_PER_SECOND <= nanoseconds) {
+            printf("\033[5A"
+                   "%15lu nanoseconds\n"
+                   "%15lu frames\n"
+                   "%15lu steps\n"
+                   "%15.4f nanoseconds/frame\n"
+                   "%15.4f steps/frame\n",
+                   nanoseconds,
+                   frames,
+                   steps,
+                   ((f64)nanoseconds) / ((f64)frames),
+                   ((f64)steps) / ((f64)frames));
+
+            nanoseconds = 0;
+            frames      = 0;
+            steps       = 0;
         }
 
         ++frames;
 
         glfwPollEvents();
 
+        f64 delta = (f64)elapsed;
         for (; FRAME_UPDATE_STEP < delta; delta -= FRAME_UPDATE_STEP) {
             step(window, 1.0f);
+            ++steps;
         }
-        step(window, ((f32)delta) / FRAME_UPDATE_STEP);
+        step(window, (f32)(delta / FRAME_UPDATE_STEP));
 
         glUniform2f(uniform_camera, CAMERA.x, CAMERA.y);
         // NOTE: See `http://the-witness.net/news/2022/02/a-shader-trick/`.
         glUniform1f(uniform_time,
-                    ((f32)(now() % (NANO_PER_SECOND * 10llu))) / ((f32)NANO_PER_SECOND));
+                    ((f32)(clock_monotonic() % (NANO_PER_SECOND * 10llu))) / NANO_PER_SECOND);
 
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(RECTS[0]), RECTS);
 
