@@ -6,8 +6,7 @@
 !cover.gif
 !.clang-format
 
-!scripts/
-!*.sh
+!Makefile
 
 !src/
 !*.h
