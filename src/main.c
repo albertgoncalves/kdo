@@ -632,14 +632,14 @@ i32 main(void) {
 
         if (NANO_PER_SECOND <= nanoseconds) {
             printf("\033[5A"
-                   "%15lu nanoseconds\n"
-                   "%15lu frames\n"
-                   "%15lu steps\n"
-                   "%15.4f nanoseconds/frame\n"
-                   "%15.4f steps/frame\n",
+                   "%12lu     nanoseconds\n"
+                   "%12lu     steps\n"
+                   "%12lu     frames\n"
+                   "%15.2f  nanoseconds/frame\n"
+                   "%15.2f  steps/frame\n",
                    nanoseconds,
-                   frames,
                    steps,
+                   frames,
                    ((f64)nanoseconds) / ((f64)frames),
                    ((f64)steps) / ((f64)frames));
 
