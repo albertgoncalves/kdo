@@ -12,8 +12,8 @@ Quick start
 ---
 ```
 $ nix-shell
-[nix-shell:path/to/kdo]$ ./scripts/run.sh      # build, run
-[nix-shell:path/to/kdo]$ ./scripts/profile.sh  # profile via `$ perf`
+[nix-shell:path/to/kdo]$ make run     # build, run
+[nix-shell:path/to/kdo]$ make profile # profile via `$ perf`
 ```
 
 Controls
@@ -21,5 +21,4 @@ Controls
 * `move` - <kbd>a</kbd> <kbd>d</kbd>
 * `jump` - <kbd>w</kbd>
 * `drop` - <kbd>s</kbd>
-* `reload config` - <kbd>r</kbd>
 * `quit` - <kbd>Esc</kbd>
