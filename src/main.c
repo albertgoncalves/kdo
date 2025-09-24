@@ -133,33 +133,6 @@ static Bool PAUSED = FALSE;
 
 static i32 UNIFORM_PAUSED;
 
-#define EXIT_IF_GL_ERROR()                                   \
-    {                                                        \
-        switch (glGetError()) {                              \
-        case GL_INVALID_ENUM: {                              \
-            assert(0 && "GL_INVALID_ENUM");                  \
-        }                                                    \
-        case GL_INVALID_VALUE: {                             \
-            assert(0 && "GL_INVALID_VALUE");                 \
-        }                                                    \
-        case GL_INVALID_OPERATION: {                         \
-            assert(0 && "GL_INVALID_OPERATION");             \
-        }                                                    \
-        case GL_INVALID_FRAMEBUFFER_OPERATION: {             \
-            assert(0 && "GL_INVALID_FRAMEBUFFER_OPERATION"); \
-        }                                                    \
-        case GL_OUT_OF_MEMORY: {                             \
-            assert(0 && "GL_OUT_OF_MEMORY");                 \
-        }                                                    \
-        case GL_NO_ERROR: {                                  \
-            break;                                           \
-        }                                                    \
-        default: {                                           \
-            assert(0);                                       \
-        }                                                    \
-        }                                                    \
-    }
-
 static u64 clock_monotonic(void) {
     Time time;
     assert(!clock_gettime(CLOCK_MONOTONIC, &time));
@@ -223,7 +196,6 @@ static void compile_shader(const char* path, u32 shader) {
         glGenBuffers(1, &object);                          \
         glBindBuffer(target, object);                      \
         glBufferData(target, sizeof(array), array, usage); \
-        EXIT_IF_GL_ERROR();                                \
     }
 
 static void callback_key(GLFWwindow* window, i32 key, i32, i32 action, i32) {
@@ -495,6 +467,23 @@ static void step(GLFWwindow* window, f32 t) {
     PLAYER_CAN_LEAP = hits == HIT_X;
 }
 
+__attribute__((noreturn)) static void callback_gl_debug(u32         source,
+                                                        u32         type,
+                                                        u32         id,
+                                                        u32         severity,
+                                                        i32         length,
+                                                        const char* message,
+                                                        const void*) {
+    fflush(stdout);
+    fflush(stderr);
+    if (0 < length) {
+        fprintf(stderr, "(%u, %u, %u, %u) %.*s", source, type, id, severity, length, message);
+    } else {
+        fprintf(stderr, "(%u, %u, %u, %u) %s", source, type, id, severity, message);
+    }
+    assert(0);
+}
+
 i32 main(void) {
     printf("GLFW version : %s\n", glfwGetVersionString());
 
@@ -509,25 +498,32 @@ i32 main(void) {
     GLFWwindow* window = glfwCreateWindow(WINDOW_X, WINDOW_Y, WINDOW_NAME, NULL, NULL);
     assert(window);
 
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(callback_gl_debug, NULL);
+    glDebugMessageControl(GL_DONT_CARE,
+                          GL_DONT_CARE,
+                          GL_DEBUG_SEVERITY_NOTIFICATION,
+                          0,
+                          NULL,
+                          FALSE);
+
     glfwSetKeyCallback(window, callback_key);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
     glClearColor(BACKGROUND_COLOR);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    EXIT_IF_GL_ERROR()
 
     u32 vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-    EXIT_IF_GL_ERROR();
 
     u32 vbo;
     BIND_BUFFER(vbo, VERTICES, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(INDEX_VERTEX);
     glVertexAttribPointer(INDEX_VERTEX, 2, GL_FLOAT, FALSE, sizeof(VERTICES[0]), 0);
-    EXIT_IF_GL_ERROR();
 
     u32 instance_vbo;
     BIND_BUFFER(instance_vbo, RECTS, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
@@ -540,7 +536,6 @@ i32 main(void) {
                           sizeof(RECTS[0]),
                           (void*)offsetof(Rect, center));
     glVertexAttribDivisor(INDEX_TRANSLATE, 1);
-    EXIT_IF_GL_ERROR();
 
     glEnableVertexAttribArray(INDEX_SCALE);
     glVertexAttribPointer(INDEX_SCALE,
@@ -550,13 +545,11 @@ i32 main(void) {
                           sizeof(RECTS[0]),
                           (void*)offsetof(Rect, scale));
     glVertexAttribDivisor(INDEX_SCALE, 1);
-    EXIT_IF_GL_ERROR();
 
     glBufferSubData(GL_ARRAY_BUFFER,
                     sizeof(RECTS[0]),
                     (LEN_RECTS - 1) * sizeof(RECTS[0]),
                     &RECTS[1]);
-    EXIT_IF_GL_ERROR()
 
     PLAYER.center = PLAYER_CENTER_INIT;
 
@@ -601,7 +594,6 @@ i32 main(void) {
 
     glUniform2f(uniform_window, WINDOW_X, WINDOW_Y);
     glUniform1ui(UNIFORM_PAUSED, PAUSED);
-    EXIT_IF_GL_ERROR();
 
     for (u32 i = 0; i < (LEN_RECTS - 1); ++i) {
         BOXES[i] = rect_to_box(RECTS[i + 1]);
@@ -668,8 +660,6 @@ i32 main(void) {
 
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 6, (i32)LEN_RECTS);
-
-        EXIT_IF_GL_ERROR()
 
         glfwSwapBuffers(window);
     }
